@@ -1,5 +1,5 @@
 # CI-only requirements — Airflow/K8s providers excluded (DAGs are not unit-tested)
-torch==2.1.2
+torch==2.8.0
 transformers==5.0.0rc3
 datasets==2.16.1
 pandas==2.1.4
