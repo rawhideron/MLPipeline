@@ -16,60 +16,55 @@ metadata:
   namespace: argocd
 spec:
   generators:
-  # List generator for individual components
   - list:
       elements:
-      - name: airflow
-        chart: airflow
-        description: "Apache Airflow 2.8.0 for ML pipeline orchestration"
-        syncWave: "1"
+      # Deploy postgres first (syncWave "0"), then airflow and serving depend on it
       - name: postgres
-        chart: postgres
-        description: "PostgreSQL 14 for Airflow metadata"
-        syncWave: "0"  # Deploy first
-      - name: fastapi
-        chart: fastapi
-        description: "FastAPI serving for model inference"
-        syncWave: "2"
-      - name: manifests
-        chart: manifests
-        description: "Kubernetes manifests (RBAC, Ingress, Secrets)"
+        helmChart: mlpipeline-postgres
+        syncWave: "0"
+      - name: airflow
+        helmChart: mlpipeline-airflow
         syncWave: "1"
-  
+      - name: serving
+        helmChart: mlpipeline-serving
+        syncWave: "2"
+
   template:
     metadata:
       name: mlpipeline-{{name}}
+      annotations:
+        argocd.argoproj.io/sync-wave: "{{syncWave}}"
       labels:
         app.kubernetes.io/name: mlpipeline
         app.kubernetes.io/component: "{{name}}"
         argocd.argoproj.io/instance: mlpipeline
-    
+
     spec:
-      project: default
-      
+      project: mlpipeline-project
+
       source:
-        repoURL: https://github.com/yourusername/MLPipeline  # Update this
+        repoURL: https://github.com/rawhideron/MLPipeline
         targetRevision: main
-        path: helm/mlpipeline-{{name}}
-        
+        path: helm/{{helmChart}}
+
         helm:
           releaseName: mlpipeline-{{name}}
           values: |
             replicaCount: 1
-            namespace: MLPipeline
+            namespace: mlpipeline
             domain: mlpipeline.duckdns.org
-      
+
       destination:
         server: https://kubernetes.default.svc
-        namespace: MLPipeline
-      
+        namespace: mlpipeline
+
       syncPolicy:
         automated:
           prune: true
           selfHeal: true
         syncOptions:
         - CreateNamespace=true
-        
+
         retry:
           limit: 5
           backoff:

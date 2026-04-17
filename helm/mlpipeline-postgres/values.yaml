@@ -1,0 +1,14 @@
+postgresql:
+  image:
+    registry: registry.bitnami.com
+    repository: bitnami/postgresql
+    tag: 16.1.0-debian-11-r25
+  auth:
+    username: mlpipeline
+    password: mlpipeline_secure_password
+    database: mlpipeline
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClassName: "standard"
