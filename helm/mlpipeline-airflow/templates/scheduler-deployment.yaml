@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-scheduler
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: airflow
+    component: scheduler
+spec:
+  replicas: {{ .Values.scheduler.replicaCount }}
+  selector:
+    matchLabels:
+      app: airflow
+      component: scheduler
+  template:
+    metadata:
+      labels:
+        app: airflow
+        component: scheduler
+    spec:
+      serviceAccountName: airflow
+      initContainers:
+        - name: git-sync-init
+          image: registry.k8s.io/git-sync/git-sync:v4.2.1
+          args:
+            - --repo=https://github.com/rawhideron/MLPipeline.git
+            - --branch=main
+            - --depth=1
+            - --one-time
+            - --root=/dags
+            - --link=repo
+          volumeMounts:
+            - name: dags
+              mountPath: /dags
+      containers:
+        - name: scheduler
+          image: {{ .Values.scheduler.image.repository }}:{{ .Values.scheduler.image.tag }}
+          imagePullPolicy: IfNotPresent
+          command: ["airflow", "scheduler"]
+          env:
+            - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+              value: "postgresql+psycopg2://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ .Release.Name }}-postgresql:5432/{{ .Values.postgresql.auth.database }}"
+            - name: AIRFLOW__CORE__EXECUTOR
+              value: KubernetesExecutor
+            - name: AIRFLOW__CORE__DAGS_FOLDER
+              value: /opt/airflow/dags/repo/dags
+            - name: AIRFLOW__KUBERNETES_EXECUTOR__NAMESPACE
+              value: {{ .Release.Namespace }}
+            - name: AIRFLOW__WEBSERVER__SECRET_KEY
+              value: "mlpipeline-secret-key-change-in-prod"
+            - name: AIRFLOW__LOGGING__BASE_LOG_FOLDER
+              value: {{ .Values.persistentVolume.logs.mountPath }}
+            {{- range .Values.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.scheduler.resources | nindent 12 }}
+          volumeMounts:
+            - name: dags
+              mountPath: /opt/airflow/dags
+            - name: logs
+              mountPath: {{ .Values.persistentVolume.logs.mountPath }}
+        - name: git-sync
+          image: registry.k8s.io/git-sync/git-sync:v4.2.1
+          args:
+            - --repo=https://github.com/rawhideron/MLPipeline.git
+            - --branch=main
+            - --period=60s
+            - --root=/dags
+            - --link=repo
+          volumeMounts:
+            - name: dags
+              mountPath: /dags
+      volumes:
+        - name: dags
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-dags
+        - name: logs
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-logs
