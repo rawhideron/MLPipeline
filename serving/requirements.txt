@@ -2,7 +2,7 @@ fastapi==0.109.0
 uvicorn==0.27.0
 pydantic==2.5.3
 python-multipart==0.0.26
-PyJWT==2.8.1
+PyJWT==2.12.0
 python-keycloak==3.8.0
 authlib==1.6.11
 httpx==0.25.2
