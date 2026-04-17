@@ -5,7 +5,7 @@ import logging
 from typing import Dict
 import os
 
-from fastapi import HTTPException, status
+from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
 import httpx
@@ -111,7 +111,9 @@ class KeycloakOAuth:
 keycloak_oauth = KeycloakOAuth()
 
 
-async def verify_token(credentials: HTTPAuthorizationCredentials) -> Dict:
+async def verify_token(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> Dict:
     """
     Dependency for FastAPI endpoints requiring authentication.
 

@@ -29,7 +29,7 @@ def app_with_mocks(mock_inference_handler):
     with patch("serving.app.inference_handler", mock_inference_handler):
         from serving.app import app
 
-        return app
+        yield app
 
 
 @pytest.fixture
