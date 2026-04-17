@@ -3,3 +3,4 @@ name: mlpipeline-postgres
 description: PostgreSQL Helm chart for MLPipeline
 type: application
 version: 1.0.0
+

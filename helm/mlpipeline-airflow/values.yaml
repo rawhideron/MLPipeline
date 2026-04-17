@@ -12,7 +12,6 @@ executor: KubernetesExecutor
 
 # Airflow database backend
 postgresql:
-  enabled: true
   auth:
     username: airflow
     password: airflow_secure_password
