@@ -13,7 +13,7 @@ pydantic==2.5.3
 python-multipart==0.0.26
 
 # Orchestration
-apache-airflow==2.8.0
+apache-airflow==3.2.0
 apache-airflow-providers-kubernetes==8.5.0
 apache-airflow-providers-postgres==5.10.0
 
