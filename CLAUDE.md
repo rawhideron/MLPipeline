@@ -1,0 +1,61 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Common Commands
+
+```bash
+# Setup
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+
+# Tests
+pytest tests/ -v
+pytest tests/ --cov=src --cov-report=html
+pytest tests/test_models.py -v          # single file
+pytest tests/ -k "test_clean_text"      # single test
+
+# Local development (without Kubernetes)
+python src/preprocessing/text_cleaning.py
+python src/models/training.py configs/training_config.yaml
+cd serving && uvicorn app:app --reload   # runs on :8000
+
+# Kubernetes
+kubectl get pods -n MLPipeline
+kubectl logs -n MLPipeline -f deployment/airflow-scheduler
+kubectl port-forward -n MLPipeline svc/airflow-webserver 8080:8080
+```
+
+## Architecture
+
+This is an end-to-end NLP sentiment classification pipeline deployed on a `kind-reunion` Kubernetes cluster.
+
+**Data flow**: Raw text → `src/preprocessing/text_cleaning.py` → HuggingFace `datasets` → `src/models/training.py` (fine-tunes `distilbert-base-uncased`) → `/models/trained_model` (PV) → `serving/app.py` (FastAPI)
+
+**Orchestration**: Airflow (`dags/training_dag.py`) runs the pipeline weekly via `KubernetesPodOperator` — each step (validate → preprocess → train → evaluate → log) runs as a separate K8s pod in the `MLPipeline` namespace.
+
+**Authentication**: All endpoints except `/health` require a Keycloak JWT. `serving/oauth_middleware.py` fetches the JWKS from Keycloak, verifies RS256 tokens, and exposes a `verify_token` FastAPI dependency. Environment variables `KEYCLOAK_REALM_URL`, `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET` configure the connection.
+
+**Deployment**: Helm charts under `helm/` deploy Airflow, FastAPI serving, and PostgreSQL. ArgoCD (`argocd/mlpipeline-app.yaml`) auto-syncs from this repo to the cluster. The ingress at `mlpipeline.duckdns.org` uses nginx + cert-manager for TLS and oauth2-proxy for route-level auth.
+
+**Config**: `configs/training_config.yaml` controls model name, epochs, batch size, learning rate, and dataset paths. `configs/inference_config.yaml` controls serving parameters. These are mounted into pods via ConfigMap.
+
+## Key Relationships
+
+- `serving/app.py` imports `oauth_middleware.py` and `inference_handler.py` — the serving directory is its own Python package deployed in a separate container.
+- `src/models/training.py` loads data from HuggingFace Hub (`imdb` dataset) and saves to the path in `output.model_path` from the config.
+- `src/models/inference.py` (`SentimentPredictor`) reads from the same path that training writes to — they share the `/models/trained_model` persistent volume in-cluster.
+- DAG tasks use `KubernetesPodOperator` with `in_cluster=True`, so they rely on the service account RBAC defined in `kubernetes/service-accounts.yaml`.
+
+## Infrastructure Notes
+
+- Cluster: `kind-reunion` (local Kind), namespace `MLPipeline`
+- Keycloak realm: `MLPipeline` — must be pre-configured before deploying (see `KEYCLOAK_SETUP.md`)
+- DNS: `mlpipeline.duckdns.org` — requires a duckdns.org account
+- For local LLM features: use [Ollama](https://ollama.com) with Mistral, Llama 3, or Phi-3 (no paid API required)
+- DVC S3 backend (`dvc-s3`) is optional — omit if not using remote artifact storage
+
+## Branch & PR Workflow
+
+- `main` is the protected branch; all changes go through PRs from `dev` or feature branches
+- Feature branches: `feature/<name>`, bug fixes: `fix/<name>`

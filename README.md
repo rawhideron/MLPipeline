@@ -267,7 +267,7 @@ kubectl get pv -n MLPipeline
 
 ## Known Limitations
 
-- Local LLM: Not supported (use DeepSeek via API if needed for advanced features)
+- Local LLM: Use [Ollama](https://ollama.com) with open-source models (Mistral, Llama 3, Phi-3) for advanced features
 - Training: Currently single-node (distributed training via Ray can be added)
 - Storage: Limited to cluster storage (external S3 backend supported via DVC config)
 
