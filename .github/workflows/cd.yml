@@ -5,45 +5,20 @@ on:
     branches: [main]
 
 jobs:
-  sync-argocd:
-    name: Sync ArgoCD
+  notify-argocd:
+    name: Notify ArgoCD
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install ArgoCD CLI
+      - name: Trigger ArgoCD webhook
+        # ArgoCD polls main every 3 minutes automatically.
+        # If ARGOCD_WEBHOOK_URL secret is set, this step sends an immediate
+        # push notification so ArgoCD syncs within seconds instead of minutes.
+        # To set up: ArgoCD Settings → Webhooks → copy the URL → add as secret.
+        if: ${{ secrets.ARGOCD_WEBHOOK_URL != '' }}
         run: |
-          curl -sSL -o /usr/local/bin/argocd \
-            https://github.com/argoproj/argo-cd/releases/download/v2.10.3/argocd-linux-amd64
-          chmod +x /usr/local/bin/argocd
-
-      - name: Login to ArgoCD
-        run: |
-          argocd login ${{ secrets.ARGOCD_SERVER }} \
-            --username ${{ secrets.ARGOCD_USERNAME }} \
-            --password ${{ secrets.ARGOCD_PASSWORD }} \
-            --insecure
-
-      - name: Sync manifests app
-        run: |
-          argocd app sync mlpipeline \
-            --timeout 300 \
-            --prune
-
-      - name: Sync Helm component apps
-        run: |
-          for app in mlpipeline-postgres mlpipeline-airflow mlpipeline-serving; do
-            echo "Syncing $app..."
-            argocd app sync "$app" \
-              --timeout 300 \
-              --prune || echo "Warning: $app sync returned non-zero (may not exist yet)"
-          done
-
-      - name: Wait for health
-        run: |
-          argocd app wait mlpipeline --health --timeout 120
-          for app in mlpipeline-postgres mlpipeline-airflow mlpipeline-serving; do
-            argocd app wait "$app" --health --timeout 300 \
-              || echo "Warning: $app health check timed out"
-          done
+          curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.ARGOCD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{"ref":"refs/heads/main"}' \
+          | grep -qE "^(200|204)$" && echo "Webhook delivered" || echo "Webhook skipped (non-2xx)"
