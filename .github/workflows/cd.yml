@@ -15,10 +15,15 @@ jobs:
         # If ARGOCD_WEBHOOK_URL secret is set, this step sends an immediate
         # push notification so ArgoCD syncs within seconds instead of minutes.
         # To set up: ArgoCD Settings → Webhooks → copy the URL → add as secret.
-        if: ${{ secrets.ARGOCD_WEBHOOK_URL != '' }}
+        env:
+          ARGOCD_WEBHOOK_URL: ${{ secrets.ARGOCD_WEBHOOK_URL }}
         run: |
+          if [ -z "$ARGOCD_WEBHOOK_URL" ]; then
+            echo "ARGOCD_WEBHOOK_URL not set — ArgoCD will sync via polling (up to 3 min)"
+            exit 0
+          fi
           curl -s -o /dev/null -w "%{http_code}" \
-            -X POST "${{ secrets.ARGOCD_WEBHOOK_URL }}" \
+            -X POST "$ARGOCD_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
             -d '{"ref":"refs/heads/main"}' \
-          | grep -qE "^(200|204)$" && echo "Webhook delivered" || echo "Webhook skipped (non-2xx)"
+          | grep -qE "^(200|204)$" && echo "Webhook delivered" || echo "Webhook failed"
