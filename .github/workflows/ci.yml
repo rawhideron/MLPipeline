@@ -42,7 +42,7 @@ jobs:
           retention-days: 1
 
   sonar:
-    name: SonarCloud Analysis
+    name: SonarQube Analysis
     runs-on: ubuntu-latest
     needs: test
 
@@ -56,11 +56,26 @@ jobs:
         with:
           name: coverage-report
 
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
+      - name: Cache SonarQube packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: sonar-cache
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v6
+        with:
+          args: >
+            -Dsonar.projectKey=mlpipeline
+            -Dsonar.sources=src,serving,dags
+            -Dsonar.tests=tests
+            -Dsonar.python.coverage.reportPaths=coverage.xml
+            -Dsonar.python.version=3.10
+            -Dsonar.exclusions=data/**,models/**,notebooks/**,helm/**,kubernetes/**,argocd/**,**/__pycache__/**
+            -Dsonar.coverage.exclusions=tests/**,dags/**
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://goodmanreunion.duckdns.org/sonarqube
 
   lint:
     name: Lint

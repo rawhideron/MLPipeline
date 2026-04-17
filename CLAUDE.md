@@ -49,7 +49,7 @@ This is an end-to-end NLP sentiment classification pipeline deployed on a `kind-
 
 ## Infrastructure Notes
 
-- Cluster: `kind-reunion` (local Kind), namespace `MLPipeline`
+- Cluster: `reunion` (local Kind — `kind-reunion` in some older docs refers to the same cluster)
 - Keycloak realm: `MLPipeline` — must be pre-configured before deploying (see `KEYCLOAK_SETUP.md`)
 - DNS: `mlpipeline.duckdns.org` — requires a duckdns.org account
 - For local LLM features: use [Ollama](https://ollama.com) with Mistral, Llama 3, or Phi-3 (no paid API required)
@@ -66,7 +66,7 @@ Two workflows run automatically:
 
 | Secret | Description |
 | ------ | ----------- |
-| `SONAR_TOKEN` | From [sonarcloud.io](https://sonarcloud.io) — free for public repos |
+| `SONAR_TOKEN` | From the self-hosted SonarQube at `goodmanreunion.duckdns.org/sonarqube` (same instance as goodman_reunion) |
 | `ARGOCD_SERVER` | Hostname of ArgoCD server (e.g. `argocd.mlpipeline.duckdns.org`) |
 | `ARGOCD_USERNAME` | ArgoCD username (default: `admin`) |
 | `ARGOCD_PASSWORD` | ArgoCD admin password |
