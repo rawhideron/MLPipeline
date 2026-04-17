@@ -90,5 +90,10 @@ The `mlpipeline` app syncs `kubernetes/` (raw manifests). The `mlpipeline-compon
 
 ## Branch & PR Workflow
 
-- `main` is the protected branch; all changes go through PRs from `dev` or feature branches
-- Feature branches: `feature/<name>`, bug fixes: `fix/<name>`
+All changes follow a three-tier flow: feature/fix branch → `dev` → `main`.
+
+1. Create a branch off `dev`: `feature/<name>` for new work, `fix/<name>` for bug fixes
+2. Open a PR targeting `dev`; CI must pass before merging
+3. Open a PR from `dev` → `main` to promote to production
+
+Never commit directly to `main` or `dev`.
