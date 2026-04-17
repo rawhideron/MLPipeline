@@ -2,10 +2,10 @@
 # For MLPipeline Kubernetes deployment
 
 # Airflow version
-airflowVersion: "2.8.0"
+airflowVersion: "3.2.0"
 
 # Namespace
-namespace: MLPipeline
+namespace: mlpipeline
 
 # Airflow executor configuration
 executor: KubernetesExecutor
@@ -28,7 +28,7 @@ webserver:
   replicaCount: 1
   image:
     repository: apache/airflow
-    tag: "2.8.0"
+    tag: "3.2.0"
   
   service:
     type: ClusterIP
@@ -61,7 +61,7 @@ scheduler:
   replicaCount: 1
   image:
     repository: apache/airflow
-    tag: "2.8.0"
+    tag: "3.2.0"
   
   resources:
     requests:
@@ -81,7 +81,7 @@ kubernetesExecutor:
   namespace: MLPipeline
   image:
     repository: apache/airflow
-    tag: "2.8.0"
+    tag: "3.2.0"
   
   resources:
     requests:
@@ -182,7 +182,7 @@ env:
   - name: AIRFLOW__CORE__EXECUTOR
     value: "KubernetesExecutor"
   - name: AIRFLOW__KUBERNETES__NAMESPACE
-    value: "MLPipeline"
+    value: "mlpipeline"
   - name: AIRFLOW__KUBERNETES__CLUSTER_NAME
     value: "kind-reunion"
   - name: AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG
