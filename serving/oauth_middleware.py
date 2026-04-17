@@ -1,5 +1,6 @@
 """Keycloak OAuth2 middleware for FastAPI."""
 
+import json
 import logging
 from typing import Optional, Dict
 import os
