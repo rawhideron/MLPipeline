@@ -38,8 +38,8 @@ data/splits/
 *.csv
 *.parquet
 
-# Models
-models/
+# Models (trained artifacts only — not src/models source code)
+/models/
 *.pkl
 *.pth
 *.h5
