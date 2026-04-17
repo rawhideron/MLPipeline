@@ -20,6 +20,21 @@ spec:
     spec:
       serviceAccountName: airflow
       initContainers:
+        - name: wait-for-db
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - until nc -z {{ .Release.Name }}-postgresql 5432; do echo "waiting for db..."; sleep 3; done
+        - name: db-migrate
+          image: {{ .Values.scheduler.image.repository }}:{{ .Values.scheduler.image.tag }}
+          imagePullPolicy: IfNotPresent
+          command: ["airflow", "db", "migrate"]
+          env:
+            - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+              value: "postgresql+psycopg2://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ .Release.Name }}-postgresql:5432/{{ .Values.postgresql.auth.database }}"
+            - name: AIRFLOW__API__SECRET_KEY
+              value: "mlpipeline-secret-key-change-in-prod"
         - name: git-sync-init
           image: registry.k8s.io/git-sync/git-sync:v4.2.1
           args:
@@ -46,7 +61,7 @@ spec:
               value: /opt/airflow/dags/repo/dags
             - name: AIRFLOW__KUBERNETES_EXECUTOR__NAMESPACE
               value: {{ .Release.Namespace }}
-            - name: AIRFLOW__WEBSERVER__SECRET_KEY
+            - name: AIRFLOW__API__SECRET_KEY
               value: "mlpipeline-secret-key-change-in-prod"
             - name: AIRFLOW__LOGGING__BASE_LOG_FOLDER
               value: {{ .Values.persistentVolume.logs.mountPath }}

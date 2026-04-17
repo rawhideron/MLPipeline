@@ -45,10 +45,10 @@ spec:
         - name: webserver
           image: {{ .Values.webserver.image.repository }}:{{ .Values.webserver.image.tag }}
           imagePullPolicy: IfNotPresent
-          command: ["airflow", "webserver"]
+          command: ["airflow", "api-server"]
           ports:
             - containerPort: 8080
-              name: webserver
+              name: api-server
           env:
             - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
               value: "postgresql+psycopg2://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ .Release.Name }}-postgresql:5432/{{ .Values.postgresql.auth.database }}"
@@ -58,7 +58,7 @@ spec:
               value: /opt/airflow/dags/repo/dags
             - name: AIRFLOW__WEBSERVER__BASE_URL
               value: "https://mlpipeline.duckdns.org/airflow"
-            - name: AIRFLOW__WEBSERVER__SECRET_KEY
+            - name: AIRFLOW__API__SECRET_KEY
               value: "mlpipeline-secret-key-change-in-prod"
             - name: AIRFLOW__LOGGING__BASE_LOG_FOLDER
               value: {{ .Values.persistentVolume.logs.mountPath }}
@@ -70,7 +70,7 @@ spec:
             {{- toYaml .Values.webserver.resources | nindent 12 }}
           livenessProbe:
             httpGet:
-              path: /airflow/health
+              path: /api/v1/health
               port: 8080
             initialDelaySeconds: 60
             periodSeconds: 30
@@ -78,7 +78,7 @@ spec:
             failureThreshold: 5
           readinessProbe:
             httpGet:
-              path: /airflow/health
+              path: /api/v1/health
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 10
