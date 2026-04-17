@@ -18,44 +18,28 @@ kind: Application
 metadata:
   name: mlpipeline
   namespace: argocd
-  # Finalizers ensure proper cleanup on deletion
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  project: default
-  
-  # Source configuration - points to Git repository
+  project: mlpipeline-project
+
+  # Raw Kubernetes manifests (RBAC, Ingress, Secrets, ConfigMaps)
   source:
-    repoURL: https://github.com/yourusername/MLPipeline  # Update this
+    repoURL: https://github.com/rawhideron/MLPipeline
     targetRevision: main
-    path: helm
-    
-    # Helm value overrides
-    helm:
-      values: |
-        global:
-          domain: mlpipeline.duckdns.org
-          namespace: MLPipeline
-          environment: production
-  
-  # Destination cluster and namespace
+    path: kubernetes
+
   destination:
     server: https://kubernetes.default.svc
-    namespace: MLPipeline
-  
-  # Sync strategy
+    namespace: mlpipeline
+
   syncPolicy:
-    # Automatic sync on source changes
     automated:
-      prune: true      # Delete resources not in Git
-      selfHeal: true   # Resync if cluster state diverges
-    
-    # Sync options
+      prune: true
+      selfHeal: true
     syncOptions:
-    - CreateNamespace=true  # Create namespace if it doesn't exist
+    - CreateNamespace=true
     - RespectIgnoreDifferences=true
-    
-    # Retry policy for failed syncs
     retry:
       limit: 5
       backoff:
@@ -63,19 +47,17 @@ spec:
         factor: 2
         maxDuration: 3m
 
-  # Health assessment rules
   ignoreDifferences:
   - group: apps
     kind: Deployment
     jsonPointers:
-    - /spec/replicas  # Ignore replica differences if HPA is enabled
-  
-  # Project-specific settings
+    - /spec/replicas
+
   info:
   - name: 'Documentation'
-    value: 'https://github.com/yourusername/MLPipeline#readme'
+    value: 'https://github.com/rawhideron/MLPipeline#readme'
   - name: 'Issues'
-    value: 'https://github.com/yourusername/MLPipeline/issues'
+    value: 'https://github.com/rawhideron/MLPipeline/issues'
 
 ---
 # AppProject to define access control
@@ -85,29 +67,31 @@ metadata:
   name: mlpipeline-project
   namespace: argocd
 spec:
-  # Allow access to specific namespaces
   destinations:
-  - namespace: 'MLPipeline'
+  - namespace: 'mlpipeline'
     server: https://kubernetes.default.svc
   - namespace: 'argocd'
     server: https://kubernetes.default.svc
-  
-  # Allow access to specific Git repositories
+
   sourceRepos:
-  - 'https://github.com/yourusername/MLPipeline'
+  - 'https://github.com/rawhideron/MLPipeline'
   - 'https://charts.bitnami.com/bitnami'
   - 'https://airflow.apache.org'
-  
-  # Define RBAC policies
+
   roles:
   - name: developers
     policies:
     - p, proj:mlpipeline-project:developers, applications, get, mlpipeline-project/*, allow
     - p, proj:mlpipeline-project:developers, applications, sync, mlpipeline-project/*, allow
-  
+
   - name: admins
     policies:
     - p, proj:mlpipeline-project:admins, applications, *, mlpipeline-project/*, allow
+
+  - name: ci
+    policies:
+    - p, proj:mlpipeline-project:ci, applications, sync, mlpipeline-project/*, allow
+    - p, proj:mlpipeline-project:ci, applications, get, mlpipeline-project/*, allow
 
 ---
 # Notification configuration (optional)

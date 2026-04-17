@@ -55,6 +55,39 @@ This is an end-to-end NLP sentiment classification pipeline deployed on a `kind-
 - For local LLM features: use [Ollama](https://ollama.com) with Mistral, Llama 3, or Phi-3 (no paid API required)
 - DVC S3 backend (`dvc-s3`) is optional — omit if not using remote artifact storage
 
+## GitHub Actions
+
+Two workflows run automatically:
+
+- **CI** (`.github/workflows/ci.yml`) — triggers on every PR and push to `main`/`dev`: runs `pytest` with coverage, SonarCloud scan, and `ruff` lint/format check.
+- **CD** (`.github/workflows/cd.yml`) — triggers on merge to `main`: calls `argocd app sync` for the manifests app and all three Helm component apps in wave order (postgres → airflow → serving).
+
+**Required GitHub Secrets:**
+
+| Secret | Description |
+| ------ | ----------- |
+| `SONAR_TOKEN` | From [sonarcloud.io](https://sonarcloud.io) — free for public repos |
+| `ARGOCD_SERVER` | Hostname of ArgoCD server (e.g. `argocd.mlpipeline.duckdns.org`) |
+| `ARGOCD_USERNAME` | ArgoCD username (default: `admin`) |
+| `ARGOCD_PASSWORD` | ArgoCD admin password |
+
+## ArgoCD
+
+Apply both manifests to register the apps with ArgoCD:
+
+```bash
+# Register the AppProject and main manifests app
+kubectl apply -f argocd/mlpipeline-app.yaml
+
+# Register the Helm component ApplicationSet (postgres, airflow, serving)
+kubectl apply -f argocd/mlpipeline-appset.yaml
+
+# Trigger an immediate sync
+argocd app sync mlpipeline
+```
+
+The `mlpipeline` app syncs `kubernetes/` (raw manifests). The `mlpipeline-components` ApplicationSet creates three apps from `helm/mlpipeline-{postgres,airflow,serving}` in sync-wave order.
+
 ## Branch & PR Workflow
 
 - `main` is the protected branch; all changes go through PRs from `dev` or feature branches

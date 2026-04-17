@@ -1,0 +1,49 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  sync-argocd:
+    name: Sync ArgoCD
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ArgoCD CLI
+        run: |
+          curl -sSL -o /usr/local/bin/argocd \
+            https://github.com/argoproj/argo-cd/releases/download/v2.10.3/argocd-linux-amd64
+          chmod +x /usr/local/bin/argocd
+
+      - name: Login to ArgoCD
+        run: |
+          argocd login ${{ secrets.ARGOCD_SERVER }} \
+            --username ${{ secrets.ARGOCD_USERNAME }} \
+            --password ${{ secrets.ARGOCD_PASSWORD }} \
+            --insecure
+
+      - name: Sync manifests app
+        run: |
+          argocd app sync mlpipeline \
+            --timeout 300 \
+            --prune
+
+      - name: Sync Helm component apps
+        run: |
+          for app in mlpipeline-postgres mlpipeline-airflow mlpipeline-serving; do
+            echo "Syncing $app..."
+            argocd app sync "$app" \
+              --timeout 300 \
+              --prune || echo "Warning: $app sync returned non-zero (may not exist yet)"
+          done
+
+      - name: Wait for health
+        run: |
+          argocd app wait mlpipeline --health --timeout 120
+          for app in mlpipeline-postgres mlpipeline-airflow mlpipeline-serving; do
+            argocd app wait "$app" --health --timeout 300 \
+              || echo "Warning: $app health check timed out"
+          done
