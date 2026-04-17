@@ -1,5 +1,5 @@
 # Core ML/Data
-torch==2.1.2
+torch==2.8.0
 transformers==5.0.0rc3
 pandas==2.1.4
 polars==0.19.19
