@@ -1,0 +1,229 @@
+# ArgoCD Helm Values Configuration
+# Used with: helm install argocd argo/argo-cd --values values-argocd.yaml
+
+global:
+  domain: argocd.mlpipeline.duckdns.org
+
+configs:
+  cm:
+    # ArgoCD server URL
+    url: https://argocd.mlpipeline.duckdns.org
+    
+    # Application instance label
+    application.instanceLabelKey: argocd.argoproj.io/instance
+    
+    # Disable SSL verification for self-signed certs (development only)
+    insecureDevices: true
+    
+    # Timeout settings
+    timeout.reconciliation: 180s
+    timeout.hard.reconciliation: 0s
+    timeout.jitter: 0s
+    
+    # Concurrent sync operations
+    application.sync.limit: 10
+    
+    # Webhook settings
+    webhook.github.secret: ""
+    webhook.gitlab.secret: ""
+  
+  params:
+    # Server settings
+    server.insecure: true
+    server.root.path: /
+    server.rootpath: /
+    
+    # Repo server settings
+    reposerver.parallelism.limit: 10
+    
+    # Concurrent processing
+    controller.processors.default: 20
+    controller.processors.statefulset: 1
+    
+  rbac:
+    # Default policy
+    policy.default: role:readonly
+    
+    # RBAC policies
+    policy.csv: |
+      # Roles
+      p, role:developers, applications, get, */*, allow
+      p, role:developers, applications, sync, */*, allow
+      p, role:developers, logs, get, */*, allow
+      p, role:developers, logs, watch, */*, allow
+      
+      p, role:admins, applications, *, */*, allow
+      p, role:admins, repositories, *, *, allow
+      p, role:admins, logs, *, *, allow
+      p, role:admins, accounts, *, *, allow
+      p, role:admins, exec, *, */*, allow
+      
+      p, role:ci, applications, sync, */*, allow
+      
+      # User role mappings
+      g, developers, role:developers
+      g, admins, role:admins
+  
+  secret:
+    # GitHub webhook secret (set via argocd CLI or sealed-secrets)
+    webhook.github.secret: ""
+    
+    # GitLab webhook secret
+    webhook.gitlab.secret: ""
+
+# Server configuration
+server:
+  # Service type
+  service:
+    type: ClusterIP
+    port: 443
+  
+  # Ingress configuration
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    
+    hosts:
+    - argocd.mlpipeline.duckdns.org
+    
+    tls:
+    - secretName: argocd-tls
+      hosts:
+      - argocd.mlpipeline.duckdns.org
+  
+  # Server resources
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Server replicas for HA
+  replicas: 1
+
+# Application controller
+controller:
+  # Replicas for HA
+  replicas: 1
+  
+  # Resource requests/limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Parallelism settings
+  parallelism: 20
+
+# Repo server configuration
+repoServer:
+  # Resource requests/limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Replicas
+  replicas: 1
+
+# Redis configuration
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
+
+# Dex (OAuth provider) configuration
+dex:
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
+
+# Notifications controller
+notifications:
+  enabled: false  # Enable if Slack/email notifications needed
+  # notifiers:
+  #   service.slack: |
+  #     token: $slack-token
+  #   service.github: |
+  #     appID: 123456
+  #     appInstallationID: 654321
+  #     privateKey: $github-private-key
+
+# Application Set controller
+applicationSet:
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
+
+# Extra environment variables
+extraEnv:
+- name: TZ
+  value: UTC
+
+# Extra config maps
+extraConfigMapData:
+  # Optional: Custom resource health rules
+  resource.customizations.health.argoproj.io_Workflow: |
+    hs = {}
+    if obj.status ~= nil then
+      if obj.status.phase ~= nil then
+        if obj.status.phase == "Succeeded" then
+          hs.status = "Healthy"
+        end
+        if obj.status.phase == "Failed" then
+          hs.status = "Degraded"
+        end
+        if obj.status.phase == "Error" then
+          hs.status = "Degraded"
+        end
+      end
+    end
+    return hs
+
+# Pod disruption budgets
+podDisruptionBudget:
+  enabled: false  # Enable for production HA
+
+# Network policies
+networkPolicy:
+  enabled: false  # Enable for security hardening
+
+# Pod security standards
+podSecurityStandards:
+  enforced: false  # Enable for production
+
+# RBAC
+rbac:
+  create: true
+
+# Service accounts
+serviceAccount:
+  create: true

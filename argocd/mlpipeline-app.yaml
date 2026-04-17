@@ -1,0 +1,130 @@
+---
+# ArgoCD Application for MLPipeline
+# Manages deployment of the entire ML pipeline including Airflow, FastAPI, PostgreSQL
+# 
+# Prerequisites:
+#   - ArgoCD installed in argocd namespace
+#   - kind-reunion cluster accessible
+#   - MLPipeline Git repository cloned
+#
+# Install:
+#   kubectl apply -f argocd/mlpipeline-app.yaml
+#
+# Sync:
+#   argocd app sync mlpipeline
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mlpipeline
+  namespace: argocd
+  # Finalizers ensure proper cleanup on deletion
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  
+  # Source configuration - points to Git repository
+  source:
+    repoURL: https://github.com/yourusername/MLPipeline  # Update this
+    targetRevision: main
+    path: helm
+    
+    # Helm value overrides
+    helm:
+      values: |
+        global:
+          domain: mlpipeline.duckdns.org
+          namespace: MLPipeline
+          environment: production
+  
+  # Destination cluster and namespace
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: MLPipeline
+  
+  # Sync strategy
+  syncPolicy:
+    # Automatic sync on source changes
+    automated:
+      prune: true      # Delete resources not in Git
+      selfHeal: true   # Resync if cluster state diverges
+    
+    # Sync options
+    syncOptions:
+    - CreateNamespace=true  # Create namespace if it doesn't exist
+    - RespectIgnoreDifferences=true
+    
+    # Retry policy for failed syncs
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Health assessment rules
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+    - /spec/replicas  # Ignore replica differences if HPA is enabled
+  
+  # Project-specific settings
+  info:
+  - name: 'Documentation'
+    value: 'https://github.com/yourusername/MLPipeline#readme'
+  - name: 'Issues'
+    value: 'https://github.com/yourusername/MLPipeline/issues'
+
+---
+# AppProject to define access control
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: mlpipeline-project
+  namespace: argocd
+spec:
+  # Allow access to specific namespaces
+  destinations:
+  - namespace: 'MLPipeline'
+    server: https://kubernetes.default.svc
+  - namespace: 'argocd'
+    server: https://kubernetes.default.svc
+  
+  # Allow access to specific Git repositories
+  sourceRepos:
+  - 'https://github.com/yourusername/MLPipeline'
+  - 'https://charts.bitnami.com/bitnami'
+  - 'https://airflow.apache.org'
+  
+  # Define RBAC policies
+  roles:
+  - name: developers
+    policies:
+    - p, proj:mlpipeline-project:developers, applications, get, mlpipeline-project/*, allow
+    - p, proj:mlpipeline-project:developers, applications, sync, mlpipeline-project/*, allow
+  
+  - name: admins
+    policies:
+    - p, proj:mlpipeline-project:admins, applications, *, mlpipeline-project/*, allow
+
+---
+# Notification configuration (optional)
+# Requires ArgoCD Notifications controller
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  service.slack: |
+    token: $slack-token
+  template.app-health-degraded: |
+    message: |
+      Application {{.app.metadata.name}} health is {{.app.status.health.status}}.
+      {{if eq .serviceType "slack"}}:exclamation:{{end}}
+    deliveryMethod: slack
+    notifyOn:
+    - sync_failed
+    - health_degraded

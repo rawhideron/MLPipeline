@@ -1,0 +1,96 @@
+---
+# ApplicationSet for MLPipeline Components
+# Manages individual components: airflow, fastapi, postgres
+# This allows fine-grained control over each component
+#
+# Install:
+#   kubectl apply -f argocd/mlpipeline-appset.yaml
+#
+# List applications:
+#   argocd app list | grep mlpipeline
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: mlpipeline-components
+  namespace: argocd
+spec:
+  generators:
+  # List generator for individual components
+  - list:
+      elements:
+      - name: airflow
+        chart: airflow
+        description: "Apache Airflow 2.8.0 for ML pipeline orchestration"
+        syncWave: "1"
+      - name: postgres
+        chart: postgres
+        description: "PostgreSQL 14 for Airflow metadata"
+        syncWave: "0"  # Deploy first
+      - name: fastapi
+        chart: fastapi
+        description: "FastAPI serving for model inference"
+        syncWave: "2"
+      - name: manifests
+        chart: manifests
+        description: "Kubernetes manifests (RBAC, Ingress, Secrets)"
+        syncWave: "1"
+  
+  template:
+    metadata:
+      name: mlpipeline-{{name}}
+      labels:
+        app.kubernetes.io/name: mlpipeline
+        app.kubernetes.io/component: "{{name}}"
+        argocd.argoproj.io/instance: mlpipeline
+    
+    spec:
+      project: default
+      
+      source:
+        repoURL: https://github.com/yourusername/MLPipeline  # Update this
+        targetRevision: main
+        path: helm/mlpipeline-{{name}}
+        
+        helm:
+          releaseName: mlpipeline-{{name}}
+          values: |
+            replicaCount: 1
+            namespace: MLPipeline
+            domain: mlpipeline.duckdns.org
+      
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: MLPipeline
+      
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+        - CreateNamespace=true
+        
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+
+---
+# Notification trigger for component syncs
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  trigger.on-component-sync: |
+    - when: sync_operation_status_unknown or sync_operation_failed or resource_status_unknown
+      oncePer: app.status.operationState.finishedAt
+      send: [app-sync-failed]
+  
+  trigger.on-component-health: |
+    - when: app.status.health.status == 'Degraded'
+      oncePer: 300s
+      send: [app-health-degraded]
