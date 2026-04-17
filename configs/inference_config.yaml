@@ -1,0 +1,15 @@
+model:
+  name: distilbert-base-uncased
+  model_path: /models/trained_model
+  max_length: 512
+
+serving:
+  batch_size: 32
+  num_workers: 4
+  timeout: 30
+  device: "cuda"  # or "cpu"
+
+output:
+  format: "json"
+  include_probabilities: true
+  include_confidence: true

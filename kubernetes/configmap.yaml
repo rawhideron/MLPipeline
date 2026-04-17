@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mlpipeline-config
+  namespace: MLPipeline
+  labels:
+    app.kubernetes.io/name: mlpipeline
+    app.kubernetes.io/component: config
+data:
+  # Airflow environment configuration
+  AIRFLOW__CORE__EXECUTOR: "KubernetesExecutor"
+  AIRFLOW__KUBERNETES__NAMESPACE: "MLPipeline"
+  AIRFLOW__KUBERNETES__CLUSTER_NAME: "kind-reunion"
+  AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG: "1"
+  AIRFLOW__WEBSERVER__BASE_LOG_FOLDER: "/airflow/logs"
+  AIRFLOW__CORE__LOG_LEVEL: "INFO"
+  
+  # Keycloak configuration
+  KEYCLOAK_REALM_URL: "https://keycloak:8080/realms/MLPipeline"
+  OAUTH_CLIENT_ID: "mlpipeline-serving"
+  
+  # Logging configuration
+  LOG_LEVEL: "INFO"
+  LOG_FORMAT: "[%(asctime)s] %(levelname)s - %(message)s"
+  
+  # Data paths
+  DATA_RAW_PATH: "/data/raw"
+  DATA_PROCESSED_PATH: "/data/processed"
+  MODELS_PATH: "/models"
+  
+  # Training configuration
+  TRAINING_CONFIG_PATH: "/airflow/dags/configs/training_config.yaml"
+  
+  # Model serving configuration
+  SERVING_BATCH_SIZE: "32"
+  SERVING_NUM_WORKERS: "4"
+  SERVING_TIMEOUT: "30"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: airflow-logs-config
+  namespace: MLPipeline
+data:
+  logging.conf: |
+    [loggers]
+    keys=root,airflow
+    
+    [handlers]
+    keys=console,file
+    
+    [formatters]
+    keys=standard
+    
+    [logger_root]
+    level=INFO
+    handlers=console
+    
+    [logger_airflow]
+    level=INFO
+    handlers=console,file
+    propagate=0
+    
+    [handler_console]
+    class=StreamHandler
+    level=INFO
+    formatter=standard
+    args=(sys.stdout,)
+    
+    [handler_file]
+    class=FileHandler
+    level=INFO
+    formatter=standard
+    args=('/airflow/logs/airflow.log',)
+    
+    [formatter_standard]
+    format=[%(asctime)s] %(name)s - %(levelname)s - %(message)s

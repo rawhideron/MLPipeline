@@ -1,0 +1,6 @@
+apiVersion: v2
+name: mlpipeline-serving
+description: FastAPI Helm chart for MLPipeline model serving
+type: application
+version: 1.0.0
+appVersion: "1.0.0"

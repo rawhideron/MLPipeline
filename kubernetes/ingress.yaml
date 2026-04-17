@@ -1,0 +1,112 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mlpipeline-ingress
+  namespace: MLPipeline
+  labels:
+    app.kubernetes.io/name: mlpipeline
+    app.kubernetes.io/component: ingress
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/auth-type: "oauth2"
+    nginx.ingress.kubernetes.io/auth-signin: "https://keycloak:8080/realms/MLPipeline/protocol/openid-connect/auth"
+    nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy/oauth2/auth"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - mlpipeline.duckdns.org
+      secretName: mlpipeline-tls
+  rules:
+    - host: mlpipeline.duckdns.org
+      http:
+        paths:
+          # Airflow Webserver
+          - path: /airflow
+            pathType: Prefix
+            backend:
+              service:
+                name: airflow-webserver
+                port:
+                  number: 8080
+          
+          # FastAPI Serving
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: mlpipeline-serving
+                port:
+                  number: 8000
+          
+          # Health check (no auth)
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: mlpipeline-serving
+                port:
+                  number: 8000
+---
+# Service for Airflow Webserver
+apiVersion: v1
+kind: Service
+metadata:
+  name: airflow-webserver
+  namespace: MLPipeline
+  labels:
+    app.kubernetes.io/name: mlpipeline
+    app.kubernetes.io/component: webserver
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: webserver
+  selector:
+    app: airflow
+    component: webserver
+---
+# Service for FastAPI Serving
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlpipeline-serving
+  namespace: MLPipeline
+  labels:
+    app.kubernetes.io/name: mlpipeline
+    app.kubernetes.io/component: serving
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: serving
+  selector:
+    app: mlpipeline
+    component: serving
+---
+# Service for PostgreSQL
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlpipeline-postgresql
+  namespace: MLPipeline
+  labels:
+    app.kubernetes.io/name: mlpipeline
+    app.kubernetes.io/component: database
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: postgresql
+  selector:
+    app: mlpipeline
+    component: postgresql

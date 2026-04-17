@@ -1,0 +1,214 @@
+# Airflow Helm Chart Values
+# For MLPipeline Kubernetes deployment
+
+# Airflow version
+airflowVersion: "2.8.0"
+
+# Namespace
+namespace: MLPipeline
+
+# Airflow executor configuration
+executor: KubernetesExecutor
+
+# Airflow database backend
+postgresql:
+  enabled: true
+  auth:
+    username: airflow
+    password: airflow_secure_password
+    database: airflow
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClassName: "standard"
+
+# Airflow webserver configuration
+webserver:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: apache/airflow
+    tag: "2.8.0"
+  
+  service:
+    type: ClusterIP
+    port: 8080
+  
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  
+  # OAuth configuration
+  oauth:
+    enabled: true
+    provider: "keycloak"
+    keycloak_realm: "https://keycloak:8080/realms/MLPipeline"
+    client_id: "airflow-webserver"
+    client_secret: "airflow_client_secret"
+  
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClassName: "standard"
+
+# Airflow scheduler configuration
+scheduler:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: apache/airflow
+    tag: "2.8.0"
+  
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+  
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClassName: "standard"
+
+# Kubernetes Pod Operator configuration
+kubernetesExecutor:
+  namespace: MLPipeline
+  image:
+    repository: apache/airflow
+    tag: "2.8.0"
+  
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "2000m"
+  
+  # Pod annotations for Keycloak/OAuth
+  podAnnotations:
+    oauth.mlpipeline.local/protected: "true"
+
+# Persistent volumes
+persistentVolume:
+  enabled: true
+  storageClassName: "standard"
+  
+  logs:
+    enabled: true
+    size: 10Gi
+    mountPath: /airflow/logs
+  
+  dags:
+    enabled: true
+    size: 5Gi
+    mountPath: /airflow/dags
+  
+  data:
+    enabled: true
+    size: 20Gi
+    mountPath: /data
+  
+  models:
+    enabled: true
+    size: 10Gi
+    mountPath: /models
+
+# Airflow configuration
+airflow:
+  # Database connection
+  database:
+    host: mlpipeline-postgresql
+    port: 5432
+    db: airflow
+    user: airflow
+    password: airflow_secure_password
+  
+  # Security
+  webserverSecretKeyLocation: /run/secrets/webserver_secret_key
+  sqlAlchemyConnString: "postgresql+psycopg2://airflow:airflow_secure_password@mlpipeline-postgresql:5432/airflow"
+  
+  # Logging
+  logging:
+    logLevel: INFO
+    logFormat: "[%%(asctime)s] {%%(filename)s:%%(lineno)d} %%(levelname)s - %%(message)s"
+
+# RBAC configuration
+rbac:
+  enabled: true
+  serviceAccount:
+    create: true
+    name: airflow
+    annotations: {}
+
+# Network policy
+networkPolicy:
+  enabled: false  # Can be enabled for security
+  policyTypes:
+    - Ingress
+    - Egress
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/auth-type: "oauth2"
+    nginx.ingress.kubernetes.io/auth-signin: "https://keycloak:8080/realms/MLPipeline/protocol/openid-connect/auth"
+    nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy/oauth2/auth"
+  
+  hosts:
+    - host: "mlpipeline.duckdns.org"
+      paths:
+        - path: "/airflow"
+          pathType: Prefix
+  
+  tls:
+    - secretName: mlpipeline-tls
+      hosts:
+        - "mlpipeline.duckdns.org"
+
+# Airflow environment variables
+env:
+  - name: AIRFLOW__WEBSERVER__BASE_LOG_FOLDER
+    value: "/airflow/logs"
+  - name: AIRFLOW__CORE__EXECUTOR
+    value: "KubernetesExecutor"
+  - name: AIRFLOW__KUBERNETES__NAMESPACE
+    value: "MLPipeline"
+  - name: AIRFLOW__KUBERNETES__CLUSTER_NAME
+    value: "kind-reunion"
+  - name: AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG
+    value: "1"
+  - name: KEYCLOAK_REALM_URL
+    value: "https://keycloak:8080/realms/MLPipeline"
+  - name: OAUTH_CLIENT_ID
+    value: "airflow-webserver"
+
+# Secrets
+secrets:
+  enabled: true
+  create: true
+  externalSecrets:
+    - name: airflow-webserver-secret
+      key: webserver_secret_key
+    - name: db-password
+      key: postgresql-password
+
+# Resource quotas
+resourceQuotas:
+  enabled: false
+  requests:
+    memory: "4Gi"
+    cpu: "4000m"
+  limits:
+    memory: "8Gi"
+    cpu: "8000m"

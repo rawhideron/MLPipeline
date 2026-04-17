@@ -1,0 +1,133 @@
+# FastAPI Serving Helm Chart Values
+# For MLPipeline model serving with OAuth
+
+replicaCount: 2
+
+image:
+  repository: mlpipeline-serving
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+  annotations: {}
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/auth-type: "oauth2"
+    nginx.ingress.kubernetes.io/auth-signin: "https://keycloak:8080/realms/MLPipeline/protocol/openid-connect/auth"
+    nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy/oauth2/auth"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+  
+  hosts:
+    - host: "mlpipeline.duckdns.org"
+      paths:
+        - path: "/api"
+          pathType: Prefix
+  
+  tls:
+    - secretName: mlpipeline-tls
+      hosts:
+        - "mlpipeline.duckdns.org"
+
+resources:
+  requests:
+    memory: "2Gi"
+    cpu: "1000m"
+  limits:
+    memory: "4Gi"
+    cpu: "2000m"
+
+# Persistence for model artifacts
+persistence:
+  enabled: true
+  storageClassName: "standard"
+  size: 10Gi
+  mountPath: /models
+  subPath: models
+
+# Autoscaling configuration
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Health checks
+livenessProbe:
+  enabled: true
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 2
+
+# Environment variables
+env:
+  - name: KEYCLOAK_REALM_URL
+    value: "https://keycloak:8080/realms/MLPipeline"
+  - name: OAUTH_CLIENT_ID
+    value: "mlpipeline-serving"
+  - name: LOG_LEVEL
+    value: "INFO"
+
+# Secrets from Keycloak
+secrets:
+  - name: OAUTH_CLIENT_SECRET
+    secretRef: keycloak-serving-secret
+    key: client-secret
+
+# Pod annotations
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/metrics"
+
+# Pod security
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: false
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: "mlpipeline-serving"
+
+# Node affinity (prefer GPU nodes if available)
+affinity:
+  nodeAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 50
+        preference:
+          matchExpressions:
+            - key: accelerator
+              operator: In
+              values:
+                - nvidia.com/gpu
