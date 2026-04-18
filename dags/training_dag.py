@@ -38,7 +38,7 @@ dag = DAG(
 )
 
 # Configuration
-NAMESPACE = "MLPipeline"
+NAMESPACE = "mlpipeline"
 CONFIG_PATH = "/airflow/dags/configs/training_config.yaml"
 DATASET_PATH = "/data/raw/movie_reviews"
 MODEL_PATH = "/models"

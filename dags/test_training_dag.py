@@ -19,7 +19,7 @@ from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperato
 from kubernetes.client import models as k8s
 
 NAMESPACE = "mlpipeline"
-IMAGE = "mlpipeline-serving:1.0.1"
+IMAGE = "mlpipeline-training:1.0.0"
 
 default_args = {
     "owner": "mlpipeline",
