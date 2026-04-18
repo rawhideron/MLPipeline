@@ -12,8 +12,9 @@ This DAG orchestrates the following steps:
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
+from airflow.providers.standard.operators.python import PythonOperator
+from kubernetes.client import models as k8s
 import yaml
 
 # Default arguments
@@ -121,8 +122,10 @@ training_task = KubernetesPodOperator(
     name="training-pod",
     in_cluster=True,
     get_logs=True,
-    requests={"memory": "4Gi", "cpu": "2"},
-    limits={"memory": "8Gi", "cpu": "4"},
+    container_resources=k8s.V1ResourceRequirements(
+        requests={"memory": "4Gi", "cpu": "2"},
+        limits={"memory": "8Gi", "cpu": "4"},
+    ),
     dag=dag,
 )
 
