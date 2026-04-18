@@ -24,7 +24,6 @@ spec:
     - host: mlpipeline.duckdns.org
       http:
         paths:
-          # Airflow Webserver
           - path: /airflow
             pathType: Prefix
             backend:
@@ -32,8 +31,6 @@ spec:
                 name: airflow-webserver
                 port:
                   number: 8080
-          
-          # FastAPI Serving
           - path: /api
             pathType: Prefix
             backend:
@@ -41,8 +38,6 @@ spec:
                 name: mlpipeline-serving
                 port:
                   number: 8000
-          
-          # Health check (no auth)
           - path: /health
             pathType: Exact
             backend:
@@ -50,63 +45,3 @@ spec:
                 name: mlpipeline-serving
                 port:
                   number: 8000
----
-# Service for Airflow Webserver
-apiVersion: v1
-kind: Service
-metadata:
-  name: airflow-webserver
-  namespace: mlpipeline
-  labels:
-    app.kubernetes.io/name: mlpipeline
-    app.kubernetes.io/component: webserver
-spec:
-  type: ClusterIP
-  ports:
-    - port: 8080
-      targetPort: 8080
-      protocol: TCP
-      name: webserver
-  selector:
-    app: airflow
-    component: webserver
----
-# Service for FastAPI Serving
-apiVersion: v1
-kind: Service
-metadata:
-  name: mlpipeline-serving
-  namespace: mlpipeline
-  labels:
-    app.kubernetes.io/name: mlpipeline
-    app.kubernetes.io/component: serving
-spec:
-  type: ClusterIP
-  ports:
-    - port: 8000
-      targetPort: 8000
-      protocol: TCP
-      name: serving
-  selector:
-    app: mlpipeline
-    component: serving
----
-# Service for PostgreSQL
-apiVersion: v1
-kind: Service
-metadata:
-  name: mlpipeline-postgresql
-  namespace: mlpipeline
-  labels:
-    app.kubernetes.io/name: mlpipeline
-    app.kubernetes.io/component: database
-spec:
-  type: ClusterIP
-  ports:
-    - port: 5432
-      targetPort: 5432
-      protocol: TCP
-      name: postgresql
-  selector:
-    app: mlpipeline
-    component: postgresql
