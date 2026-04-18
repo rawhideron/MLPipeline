@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-proxy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: oauth2-proxy
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: oauth2-proxy
+  template:
+    metadata:
+      labels:
+        app: oauth2-proxy
+    spec:
+      containers:
+        - name: oauth2-proxy
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - --provider=oidc
+            - --oidc-issuer-url={{ .Values.oidc.issuerUrl }}
+            - --client-id={{ .Values.oidc.clientId }}
+            - --redirect-url={{ .Values.redirectUrl }}
+            - --upstream=file:///dev/null
+            - --http-address=0.0.0.0:4180
+            - --email-domain=*
+            - --cookie-secure=true
+            - --cookie-domain={{ .Values.cookieDomain }}
+            - --whitelist-domain={{ .Values.cookieDomain }}
+            - --skip-provider-button=true
+            - --silence-ping-logging=true
+            - --oidc-groups-claim=groups
+            - --insecure-oidc-skip-issuer-verification=true
+          env:
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.credentialsSecret }}
+                  key: client-secret
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.credentialsSecret }}
+                  key: cookie-secret
+          ports:
+            - containerPort: 4180
+              name: http
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: 4180
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 4180
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
