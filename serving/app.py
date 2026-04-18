@@ -18,6 +18,7 @@ app = FastAPI(
     title="MLPipeline API",
     description="NLP Sentiment Classification Service",
     version="1.0.0",
+    root_path="/api",
 )
 
 # Initialize model inference handler
