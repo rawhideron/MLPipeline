@@ -8,11 +8,9 @@ metadata:
     app.kubernetes.io/component: ingress
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    nginx.ingress.kubernetes.io/auth-type: "oauth2"
-    nginx.ingress.kubernetes.io/auth-signin: "https://keycloak:8080/realms/MLPipeline/protocol/openid-connect/auth"
-    nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.mlpipeline.svc.cluster.local:4180/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://mlpipeline.duckdns.org/oauth2/start?rd=$escaped_request_uri"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/rewrite-target: /
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
   ingressClassName: nginx
@@ -24,6 +22,13 @@ spec:
     - host: mlpipeline.duckdns.org
       http:
         paths:
+          - path: /oauth2
+            pathType: Prefix
+            backend:
+              service:
+                name: oauth2-proxy
+                port:
+                  number: 4180
           - path: /airflow
             pathType: Prefix
             backend:
@@ -38,6 +43,29 @@ spec:
                 name: mlpipeline-serving
                 port:
                   number: 8000
+---
+# Unauthenticated ingress for health check only
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mlpipeline-ingress-public
+  namespace: mlpipeline
+  labels:
+    app.kubernetes.io/name: mlpipeline
+    app.kubernetes.io/component: ingress
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - mlpipeline.duckdns.org
+      secretName: mlpipeline-tls
+  rules:
+    - host: mlpipeline.duckdns.org
+      http:
+        paths:
           - path: /health
             pathType: Exact
             backend:

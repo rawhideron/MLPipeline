@@ -1,0 +1,6 @@
+apiVersion: v2
+name: mlpipeline-oauth2proxy
+description: oauth2-proxy for MLPipeline ingress authentication via Keycloak
+type: application
+version: 1.0.0
+appVersion: "7.6.0"
