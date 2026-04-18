@@ -28,6 +28,7 @@ async def custom_docs():
     # Swagger UI must fetch the spec through /api/openapi.json so nginx rewrites it correctly
     return get_swagger_ui_html(openapi_url="/api/openapi.json", title="MLPipeline API")
 
+
 # Initialize model inference handler
 inference_handler = InferenceHandler(model_path="/models/trained_model")
 
