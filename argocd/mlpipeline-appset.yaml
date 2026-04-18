@@ -66,6 +66,7 @@ spec:
         kind: Deployment
         jsonPointers:
         - /metadata/annotations/field.cattle.io~1publicEndpoints
+        - /spec/replicas
 
       syncPolicy:
         automated:
