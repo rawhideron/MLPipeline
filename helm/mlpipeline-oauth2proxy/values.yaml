@@ -7,7 +7,7 @@ image:
 
 # Keycloak OIDC settings
 oidc:
-  issuerUrl: "http://keycloak-keycloakx-http.keycloak.svc.cluster.local/realms/MLPipeline"
+  issuerUrl: "http://keycloak-keycloakx-http.keycloak.svc.cluster.local/keycloak/realms/MLPipeline"
   clientId: "oauth2-proxy"
 
 # Credentials are read from the oauth2-proxy-secrets Kubernetes secret
