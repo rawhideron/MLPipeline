@@ -22,13 +22,6 @@ spec:
     - host: mlpipeline.duckdns.org
       http:
         paths:
-          - path: /airflow
-            pathType: Prefix
-            backend:
-              service:
-                name: airflow-webserver
-                port:
-                  number: 8080
           - path: /api
             pathType: Prefix
             backend:
@@ -61,6 +54,13 @@ spec:
     - host: mlpipeline.duckdns.org
       http:
         paths:
+          - path: /airflow
+            pathType: Prefix
+            backend:
+              service:
+                name: airflow-webserver
+                port:
+                  number: 8080
           - path: /oauth2
             pathType: Prefix
             backend:
