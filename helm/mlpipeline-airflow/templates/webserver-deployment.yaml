@@ -17,6 +17,8 @@ spec:
       labels:
         app: airflow
         component: webserver
+      annotations:
+        checksum/webserver-config: {{ include (print $.Template.BasePath "/webserver-config.yaml") . | sha256sum }}
     spec:
       serviceAccountName: airflow
       initContainers:
