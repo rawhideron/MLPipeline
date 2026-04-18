@@ -66,6 +66,8 @@ spec:
               value: "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager"
             - name: AIRFLOW__WEBSERVER__CONFIG_FILE
               value: "/opt/airflow/webserver_config.py"
+            - name: AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX
+              value: "True"
             - name: AIRFLOW_KEYCLOAK_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
