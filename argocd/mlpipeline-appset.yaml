@@ -61,6 +61,12 @@ spec:
         server: https://kubernetes.default.svc
         namespace: mlpipeline
 
+      ignoreDifferences:
+      - group: apps
+        kind: Deployment
+        jsonPointers:
+        - /metadata/annotations/field.cattle.io~1publicEndpoints
+
       syncPolicy:
         automated:
           prune: true
