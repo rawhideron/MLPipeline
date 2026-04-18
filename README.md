@@ -151,9 +151,9 @@ chmod +x scripts/*.sh
 
 ### 4. Access Services
 
-- **Airflow Webserver**: https://mlpipeline.duckdns.org/airflow (OAuth login required)
-- **FastAPI Docs**: https://mlpipeline.duckdns.org/api/docs
-- **Health Check**: https://mlpipeline.duckdns.org/api/health
+- **Airflow Webserver**: [https://mlpipeline.duckdns.org/airflow](https://mlpipeline.duckdns.org/airflow) (OAuth login required)
+- **FastAPI Docs**: [https://mlpipeline.duckdns.org/api/docs](https://mlpipeline.duckdns.org/api/docs) (OAuth login required)
+- **Health Check**: [https://mlpipeline.duckdns.org/health](https://mlpipeline.duckdns.org/health) (public, no auth)
 
 ## ML Pipeline Workflow
 
