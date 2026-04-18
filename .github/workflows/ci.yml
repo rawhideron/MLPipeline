@@ -77,6 +77,46 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://goodmanreunion.duckdns.org/sonarqube
 
+  validate-dags:
+    name: Validate DAGs
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Airflow and providers
+        run: |
+          pip install \
+            "apache-airflow==3.0.0" \
+            "apache-airflow-providers-cncf-kubernetes" \
+            "apache-airflow-providers-standard" \
+            --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-3.0.0/constraints-3.11.txt"
+
+      - name: Initialise Airflow DB
+        run: airflow db migrate
+        env:
+          AIRFLOW__CORE__DAGS_FOLDER: ${{ github.workspace }}/dags
+          AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////tmp/airflow-ci.db
+
+      - name: Check all DAGs parse without errors
+        run: |
+          airflow dags list-import-errors 2>&1 | tee /tmp/import-errors.txt
+          if grep -q "dags-folder" /tmp/import-errors.txt; then
+            echo "DAG import errors found:"
+            cat /tmp/import-errors.txt
+            exit 1
+          fi
+          echo "All DAGs parsed successfully"
+        env:
+          AIRFLOW__CORE__DAGS_FOLDER: ${{ github.workspace }}/dags
+          AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////tmp/airflow-ci.db
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
