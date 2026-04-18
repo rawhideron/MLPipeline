@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-pod-template
+  namespace: {{ .Release.Namespace }}
+data:
+  pod_template.yaml: |
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: placeholder
+    spec:
+      serviceAccountName: airflow
+      restartPolicy: Never
+      containers:
+        - name: base
+          image: {{ .Values.scheduler.image.repository }}:{{ .Values.scheduler.image.tag }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: AIRFLOW__CORE__EXECUTOR
+              value: LocalExecutor
+            - name: AIRFLOW__DATABASE__SQL_ALCHEMY_CONN
+              value: "postgresql+psycopg2://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ .Release.Name }}-postgresql:5432/{{ .Values.postgresql.auth.database }}"
+            - name: AIRFLOW__CORE__DAGS_FOLDER
+              value: /opt/airflow/dags/repo/dags
+            - name: AIRFLOW__API__SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mlpipeline-airflow-webserver-secret
+                  key: webserver-secret-key
+          volumeMounts:
+            - name: dags
+              mountPath: /opt/airflow/dags
+      volumes:
+        - name: dags
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-dags
