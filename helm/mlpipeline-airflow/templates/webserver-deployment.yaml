@@ -59,7 +59,10 @@ spec:
             - name: AIRFLOW__API__BASE_URL
               value: "https://mlpipeline.duckdns.org/airflow"
             - name: AIRFLOW__API__SECRET_KEY
-              value: "mlpipeline-secret-key-change-in-prod"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-webserver-secret
+                  key: secret-key
             - name: AIRFLOW__LOGGING__BASE_LOG_FOLDER
               value: {{ .Values.persistentVolume.logs.mountPath }}
             - name: AIRFLOW__CORE__AUTH_MANAGER
