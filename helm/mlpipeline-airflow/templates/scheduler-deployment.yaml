@@ -67,7 +67,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: mlpipeline-airflow-webserver-secret
-                  key: webserver-secret-key
+                  key: secret-key
             - name: AIRFLOW__LOGGING__BASE_LOG_FOLDER
               value: {{ .Values.persistentVolume.logs.mountPath }}
             {{- range .Values.env }}
