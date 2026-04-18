@@ -27,7 +27,7 @@ data:
               valueFrom:
                 secretKeyRef:
                   name: mlpipeline-airflow-webserver-secret
-                  key: webserver-secret-key
+                  key: secret-key
           volumeMounts:
             - name: dags
               mountPath: /opt/airflow/dags
