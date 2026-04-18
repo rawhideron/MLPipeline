@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/name: mlpipeline
     app.kubernetes.io/component: ingress
   annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    cert-manager.io/cluster-issuer: "reunion-letsencrypt"
     nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.mlpipeline.svc.cluster.local:4180/oauth2/auth"
     nginx.ingress.kubernetes.io/auth-signin: "https://mlpipeline.duckdns.org/oauth2/start?rd=$escaped_request_uri"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
@@ -54,7 +54,7 @@ metadata:
     app.kubernetes.io/name: mlpipeline
     app.kubernetes.io/component: ingress
   annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    cert-manager.io/cluster-issuer: "reunion-letsencrypt"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
   ingressClassName: nginx

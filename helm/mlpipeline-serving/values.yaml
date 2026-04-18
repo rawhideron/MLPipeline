@@ -18,7 +18,7 @@ ingress:
   enabled: true
   className: "nginx"
   annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    cert-manager.io/cluster-issuer: "reunion-letsencrypt"
     nginx.ingress.kubernetes.io/auth-type: "oauth2"
     nginx.ingress.kubernetes.io/auth-signin: "https://keycloak:8080/realms/MLPipeline/protocol/openid-connect/auth"
     nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy/oauth2/auth"
