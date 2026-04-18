@@ -15,7 +15,7 @@ Requires the serving pod to be running and the model to be loaded
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.operators.python import PythonOperator
+from airflow.providers.standard.operators.python import PythonOperator
 
 SERVING_URL = "http://mlpipeline-serving.mlpipeline.svc.cluster.local:8000"
 
@@ -29,7 +29,7 @@ dag = DAG(
     "mlpipeline_test_inference",
     default_args=default_args,
     description="Test inference by calling the live FastAPI serving endpoint",
-    schedule_interval=None,  # manual trigger only
+    schedule=None,  # manual trigger only
     start_date=datetime(2026, 1, 1),
     catchup=False,
     tags=["test", "inference"],

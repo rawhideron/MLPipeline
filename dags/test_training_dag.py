@@ -14,7 +14,7 @@ Run manually from the Airflow UI: DAGs → mlpipeline_test_training → Trigger 
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.operators.python import PythonOperator
+from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from kubernetes.client import models as k8s
 
@@ -31,7 +31,7 @@ dag = DAG(
     "mlpipeline_test_training",
     default_args=default_args,
     description="Quick training test — 1 epoch on 200 IMDB samples",
-    schedule_interval=None,  # manual trigger only
+    schedule=None,  # manual trigger only
     start_date=datetime(2026, 1, 1),
     catchup=False,
     tags=["test", "training"],
