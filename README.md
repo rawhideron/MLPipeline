@@ -215,6 +215,27 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed steps:
 - Helm chart deployment
 - Verification and troubleshooting
 
+## DAGs
+
+DAG files live in the [`dags/`](dags/) directory. Merge a `.py` file there to `main` and git-sync delivers it to Airflow within ~60 seconds — no manual steps required.
+
+| DAG                        | Schedule | Purpose                                                    |
+| -------------------------- | -------- | ---------------------------------------------------------- |
+| `mlpipeline_test_training` | Manual   | Fine-tunes DistilBERT on 200 IMDB samples — run this first |
+| `mlpipeline_test_inference`| Manual   | Calls the live FastAPI endpoint with sample texts          |
+| `mlpipeline_training`      | Weekly   | Full production training pipeline                          |
+| `mlpipeline_inference`     | Daily    | Production batch inference                                 |
+
+New DAGs are **paused by default** — toggle them on in the Airflow UI before triggering.
+
+To validate a DAG locally before pushing:
+
+```bash
+airflow dags check --dag-id <dag_id>
+```
+
+CI automatically runs `airflow dags list-import-errors` on every PR — a DAG with a syntax error, wrong API call, or bad import will block the merge.
+
 ## Testing
 
 ```bash
