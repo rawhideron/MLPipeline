@@ -12,8 +12,8 @@ This DAG orchestrates the following steps:
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.operators.python import PythonOperator
-from airflow.operators.kubernetes_pod import KubernetesPodOperator
+from airflow.providers.standard.operators.python import PythonOperator
+from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 import yaml
 
 # Default arguments
@@ -30,7 +30,7 @@ dag = DAG(
     "mlpipeline_training",
     default_args=default_args,
     description="End-to-end NLP model training pipeline",
-    schedule_interval="@weekly",  # Run weekly
+    schedule="@weekly",  # Run weekly
     start_date=datetime(2026, 1, 1),
     catchup=False,
     tags=["ml", "training", "nlp"],
