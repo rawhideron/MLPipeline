@@ -34,6 +34,7 @@ spec:
             - --silence-ping-logging=true
             - --oidc-groups-claim=groups
             - --insecure-oidc-skip-issuer-verification=true
+            - --insecure-oidc-allow-unverified-email=true
           env:
             - name: OAUTH2_PROXY_CLIENT_SECRET
               valueFrom:
