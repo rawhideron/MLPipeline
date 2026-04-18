@@ -56,7 +56,7 @@ spec:
               value: KubernetesExecutor
             - name: AIRFLOW__CORE__DAGS_FOLDER
               value: /opt/airflow/dags/repo/dags
-            - name: AIRFLOW__WEBSERVER__BASE_URL
+            - name: AIRFLOW__API__BASE_URL
               value: "https://mlpipeline.duckdns.org/airflow"
             - name: AIRFLOW__API__SECRET_KEY
               value: "mlpipeline-secret-key-change-in-prod"
@@ -70,7 +70,7 @@ spec:
             {{- toYaml .Values.webserver.resources | nindent 12 }}
           livenessProbe:
             httpGet:
-              path: /api/v1/health
+              path: /api/v2/monitor/health
               port: 8080
             initialDelaySeconds: 60
             periodSeconds: 30
@@ -78,7 +78,7 @@ spec:
             failureThreshold: 5
           readinessProbe:
             httpGet:
-              path: /api/v1/health
+              path: /api/v2/monitor/health
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 10
