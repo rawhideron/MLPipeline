@@ -22,13 +22,6 @@ spec:
     - host: mlpipeline.duckdns.org
       http:
         paths:
-          - path: /oauth2
-            pathType: Prefix
-            backend:
-              service:
-                name: oauth2-proxy
-                port:
-                  number: 4180
           - path: /airflow
             pathType: Prefix
             backend:
@@ -66,6 +59,13 @@ spec:
     - host: mlpipeline.duckdns.org
       http:
         paths:
+          - path: /oauth2
+            pathType: Prefix
+            backend:
+              service:
+                name: oauth2-proxy
+                port:
+                  number: 4180
           - path: /health
             pathType: Exact
             backend:
