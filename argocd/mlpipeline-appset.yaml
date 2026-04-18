@@ -28,6 +28,9 @@ spec:
       - name: serving
         helmChart: mlpipeline-serving
         syncWave: "2"
+      - name: oauth2proxy
+        helmChart: mlpipeline-oauth2proxy
+        syncWave: "2"
 
   template:
     metadata:
