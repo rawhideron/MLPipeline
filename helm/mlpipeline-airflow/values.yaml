@@ -26,8 +26,6 @@ postgresql:
 webserver:
   enabled: true
   replicaCount: 1
-  # Override this via ArgoCD values or a Kubernetes Secret — never commit a real value here
-  secretKey: "CHANGE_ME_USE_ARGOCD_VALUES"
   image:
     repository: apache/airflow
     tag: "3.2.0"
