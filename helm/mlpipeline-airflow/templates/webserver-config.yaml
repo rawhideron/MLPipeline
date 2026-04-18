@@ -13,6 +13,9 @@ data:
 
     AUTH_TYPE = AUTH_OAUTH
 
+    # Force HTTPS for OAuth redirect_uri generation (we're behind an SSL-terminating proxy)
+    PREFERRED_URL_SCHEME = 'https'
+
     OAUTH_PROVIDERS = [{
         'name': 'keycloak',
         'token_key': 'access_token',
@@ -26,6 +29,7 @@ data:
             'access_token_url': 'https://goodmanreunion.duckdns.org/keycloak/realms/MLPipeline/protocol/openid-connect/token',
             'authorize_url': 'https://goodmanreunion.duckdns.org/keycloak/realms/MLPipeline/protocol/openid-connect/auth',
             'jwks_uri': 'https://goodmanreunion.duckdns.org/keycloak/realms/MLPipeline/protocol/openid-connect/certs',
+            'redirect_uri': 'https://mlpipeline.duckdns.org/airflow/auth/oauth-authorized/keycloak',
         },
     }]
 
