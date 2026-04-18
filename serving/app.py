@@ -3,7 +3,8 @@
 import logging
 
 from fastapi import FastAPI, HTTPException, Depends, status
-from fastapi.responses import JSONResponse
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 from oauth_middleware import verify_token
@@ -18,8 +19,14 @@ app = FastAPI(
     title="MLPipeline API",
     description="NLP Sentiment Classification Service",
     version="1.0.0",
-    root_path="/api",
+    docs_url=None,
 )
+
+
+@app.get("/docs", include_in_schema=False, response_class=HTMLResponse)
+async def custom_docs():
+    # Swagger UI must fetch the spec through /api/openapi.json so nginx rewrites it correctly
+    return get_swagger_ui_html(openapi_url="/api/openapi.json", title="MLPipeline API")
 
 # Initialize model inference handler
 inference_handler = InferenceHandler(model_path="/models/trained_model")
