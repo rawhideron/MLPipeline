@@ -2,11 +2,11 @@
 Apache Airflow DAG for ML model training pipeline.
 
 This DAG orchestrates the following steps:
-1. Data validation with Great Expectations
-2. Data preprocessing
-3. Model training
-4. Model evaluation
-5. Model registry and versioning
+1. Data validation - verifies IMDB dataset is accessible from HuggingFace Hub
+2. Data preprocessing - runs text cleaning on a sample batch to verify the pipeline
+3. Model training - fine-tunes distilbert-base-uncased on IMDB sentiment data
+4. Model evaluation - loads and verifies the trained model
+5. Pipeline completion log
 """
 
 from datetime import datetime, timedelta
@@ -17,68 +17,80 @@ from airflow.providers.standard.operators.python import PythonOperator
 from kubernetes.client import models as k8s
 import yaml
 
-# Default arguments
 default_args = {
     "owner": "mlpipeline",
-    "retries": 2,
+    "retries": 1,
     "retry_delay": timedelta(minutes=5),
-    "email": ["alerts@mlpipeline.local"],
-    "email_on_failure": True,
+    "email_on_failure": False,
 }
 
-# DAG definition
 dag = DAG(
     "mlpipeline_training",
     default_args=default_args,
     description="End-to-end NLP model training pipeline",
-    schedule="@weekly",  # Run weekly
+    schedule="@weekly",
     start_date=datetime(2026, 1, 1),
     catchup=False,
     tags=["ml", "training", "nlp"],
 )
 
-# Configuration
+# git-sync mounts the repo under the dags PVC: /opt/airflow/dags/repo/
 NAMESPACE = "mlpipeline"
-CONFIG_PATH = "/airflow/dags/configs/training_config.yaml"
-DATASET_PATH = "/data/raw/movie_reviews"
-MODEL_PATH = "/models"
+REPO_PATH = "/opt/airflow/dags/repo"
+CONFIG_PATH = f"{REPO_PATH}/configs/training_config.yaml"
+MODEL_PATH = "/models/trained_model"
+
+# Custom image built from training/Dockerfile — has torch, transformers, datasets
+TRAINING_IMAGE = "mlpipeline-training:latest"
+
+# PVC names match the Helm Release.Name prefix (mlpipeline-airflow)
+DAGS_PVC = "mlpipeline-airflow-dags"
+MODELS_PVC = "mlpipeline-airflow-models"
 
 
-def load_config():
-    """Load training configuration."""
-    with open(CONFIG_PATH) as f:
-        return yaml.safe_load(f)
+def _models_volume():
+    return k8s.V1Volume(
+        name="models",
+        persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
+            claim_name=MODELS_PVC
+        ),
+    )
+
+
+def _models_mount():
+    return k8s.V1VolumeMount(name="models", mount_path="/models")
 
 
 def log_pipeline_start():
-    """Log pipeline start information."""
-    config = load_config()
+    with open(CONFIG_PATH) as f:
+        config = yaml.safe_load(f)
     print(f"Starting training pipeline with config: {config['model']['name']}")
 
 
-# Python tasks
 log_start_task = PythonOperator(
     task_id="log_pipeline_start",
     python_callable=log_pipeline_start,
     dag=dag,
 )
 
-# Kubernetes Pod tasks
+# Validate that the IMDB dataset is reachable from HuggingFace Hub before training
 data_validation_task = KubernetesPodOperator(
     task_id="validate_data",
     namespace=NAMESPACE,
-    image="python:3.9-slim",
+    image=TRAINING_IMAGE,
+    image_pull_policy="IfNotPresent",
     cmds=["python"],
     arguments=[
         "-c",
-        """
-import subprocess
-result = subprocess.run([
-    "python", "-m", "great_expectations",
-    "checkpoint", "run", "data_validation"
-], cwd="/airflow/dags")
-exit(result.returncode)
-""",
+        (
+            "from datasets import load_dataset\n"
+            "print('Checking IMDB dataset accessibility...')\n"
+            "ds = load_dataset('imdb', split='train[:100]')\n"
+            "assert 'text' in ds.features, \"Missing 'text' column\"\n"
+            "assert 'label' in ds.features, \"Missing 'label' column\"\n"
+            "assert len(ds) == 100\n"
+            "print(f'Validation passed: {len(ds)} examples, columns: {list(ds.features)}')\n"
+        ),
     ],
     name="data-validation-pod",
     in_cluster=True,
@@ -86,23 +98,26 @@ exit(result.returncode)
     dag=dag,
 )
 
+# Run text cleaning on a sample to verify the preprocessing module is functional
 preprocessing_task = KubernetesPodOperator(
     task_id="preprocess_data",
     namespace=NAMESPACE,
-    image="python:3.9",
+    image=TRAINING_IMAGE,
+    image_pull_policy="IfNotPresent",
     cmds=["python"],
     arguments=[
         "-c",
-        """
-import sys
-sys.path.insert(0, "/airflow/dags")
-from src.preprocessing.text_cleaning import preprocess_batch
-import json
-
-# Load raw data and preprocess
-# This is a placeholder - actual data loading would happen here
-print("Data preprocessing completed")
-""",
+        (
+            "import sys\n"
+            "sys.path.insert(0, '/app')\n"
+            "from src.preprocessing.text_cleaning import preprocess_batch\n"
+            "from datasets import load_dataset\n"
+            "print('Loading sample data for preprocessing check...')\n"
+            "ds = load_dataset('imdb', split='train[:50]')\n"
+            "cleaned = preprocess_batch(ds['text'], clean=True)\n"
+            "assert len(cleaned) == 50\n"
+            "print(f'Preprocessing passed: {len(cleaned)} texts cleaned')\n"
+        ),
     ],
     name="preprocess-pod",
     in_cluster=True,
@@ -110,15 +125,14 @@ print("Data preprocessing completed")
     dag=dag,
 )
 
+# Fine-tune distilbert; saves model to /models/trained_model on the shared PVC
 training_task = KubernetesPodOperator(
     task_id="train_model",
     namespace=NAMESPACE,
-    image="pytorch/pytorch:2.0-cuda11.8-runtime-ubuntu22.04",
+    image=TRAINING_IMAGE,
+    image_pull_policy="IfNotPresent",
     cmds=["python"],
-    arguments=[
-        "/airflow/dags/src/models/training.py",
-        "/airflow/dags/configs/training_config.yaml",
-    ],
+    arguments=["/app/src/models/training.py", "/app/configs/training_config.yaml"],
     name="training-pod",
     in_cluster=True,
     get_logs=True,
@@ -126,29 +140,24 @@ training_task = KubernetesPodOperator(
         requests={"memory": "4Gi", "cpu": "2"},
         limits={"memory": "8Gi", "cpu": "4"},
     ),
+    volumes=[_models_volume()],
+    volume_mounts=[_models_mount()],
     dag=dag,
 )
 
+# Load the saved model from the shared PVC to verify it was written correctly
 evaluation_task = KubernetesPodOperator(
     task_id="evaluate_model",
     namespace=NAMESPACE,
-    image="pytorch/pytorch:2.0-cuda11.8-runtime-ubuntu22.04",
+    image=TRAINING_IMAGE,
+    image_pull_policy="IfNotPresent",
     cmds=["python"],
-    arguments=[
-        "-c",
-        """
-import sys
-sys.path.insert(0, "/airflow/dags")
-from src.models.evaluation import ModelEvaluator
-import json
-
-evaluator = ModelEvaluator("/models/trained_model")
-print("Model evaluation completed")
-""",
-    ],
+    arguments=["/app/src/models/evaluation.py", "/models/trained_model"],
     name="evaluation-pod",
     in_cluster=True,
     get_logs=True,
+    volumes=[_models_volume()],
+    volume_mounts=[_models_mount()],
     dag=dag,
 )
 
@@ -158,9 +167,12 @@ log_completion_task = PythonOperator(
     dag=dag,
 )
 
-# Define task dependencies
-log_start_task >> data_validation_task
-data_validation_task >> preprocessing_task
-preprocessing_task >> training_task
-training_task >> evaluation_task
-evaluation_task >> log_completion_task
+# Task dependencies
+(
+    log_start_task
+    >> data_validation_task
+    >> preprocessing_task
+    >> training_task
+    >> evaluation_task
+    >> log_completion_task
+)
