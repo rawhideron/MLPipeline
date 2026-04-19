@@ -8,6 +8,7 @@ metadata:
     component: webserver
 spec:
   replicas: {{ .Values.webserver.replicaCount }}
+  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: airflow
