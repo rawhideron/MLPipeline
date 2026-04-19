@@ -23,7 +23,7 @@ data:
               value: "postgresql+psycopg2://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ .Release.Name }}-postgresql:5432/{{ .Values.postgresql.auth.database }}"
             - name: AIRFLOW__CORE__DAGS_FOLDER
               value: /opt/airflow/dags/repo/dags
-            - name: AIRFLOW__WORKERS__EXECUTION_API_SERVER_URL
+            - name: AIRFLOW__CORE__EXECUTION_API_SERVER_URL
               value: "http://airflow-webserver.{{ .Release.Namespace }}.svc.cluster.local:8080/execution/"
             - name: AIRFLOW__API__SECRET_KEY
               valueFrom:
