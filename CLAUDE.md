@@ -90,10 +90,25 @@ The `mlpipeline` app syncs `kubernetes/` (raw manifests). The `mlpipeline-compon
 
 ## Branch & PR Workflow
 
-All changes follow a three-tier flow: feature/fix branch → `dev` → `main`.
+All changes follow a three-tier flow: feature/fix branch → `dev` → `main`. ArgoCD watches `main` and syncs automatically to the cluster on every merge.
 
 1. Create a branch off `dev`: `feature/<name>` for new work, `fix/<name>` for bug fixes
-2. Open a PR targeting `dev`; CI must pass before merging
-3. Open a PR from `dev` → `main` to promote to production
+2. Open a PR targeting `dev` with `--auto` flag — it merges automatically once CI passes
+3. Open a PR from `dev` → `main` with `--auto` flag — same auto-merge on green CI
+4. ArgoCD detects the `main` change and syncs to the cluster automatically
 
-Never commit directly to `main` or `dev`.
+```bash
+# Standard PR flow
+gh pr create --base dev --title "..." --body "..."
+gh pr merge <number> --merge --auto
+
+# After it merges to dev, promote to main
+gh pr create --base main --head dev --title "Promote dev → main: ..." --body "..."
+gh pr merge <number> --merge --auto
+```
+
+**Never commit directly to `main` or `dev`.**
+
+**Never run `helm upgrade` or `kubectl apply` to modify cluster state directly** — ArgoCD owns all cluster resources. Make changes in the repo and let ArgoCD sync them.
+
+Branch protection is enabled on `dev` and `main` (CI must pass). Auto-merge is enabled in repo settings.
