@@ -20,6 +20,7 @@ spec:
         component: webserver
       annotations:
         checksum/webserver-config: {{ include (print $.Template.BasePath "/webserver-config.yaml") . | sha256sum }}
+        kubectl.kubernetes.io/restartedAt: "2026-04-19T21:00:00Z"
     spec:
       serviceAccountName: airflow
       initContainers:
