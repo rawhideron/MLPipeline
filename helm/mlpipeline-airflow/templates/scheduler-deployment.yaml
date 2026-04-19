@@ -8,6 +8,7 @@ metadata:
     component: scheduler
 spec:
   replicas: {{ .Values.scheduler.replicaCount }}
+  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: airflow
