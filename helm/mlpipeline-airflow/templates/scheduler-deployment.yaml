@@ -17,6 +17,8 @@ spec:
       labels:
         app: airflow
         component: scheduler
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2026-04-19T17:00:00Z"
     spec:
       serviceAccountName: airflow
       initContainers:
