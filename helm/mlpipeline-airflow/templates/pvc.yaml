@@ -23,3 +23,16 @@ spec:
     requests:
       storage: {{ .Values.persistentVolume.dags.size }}
   storageClassName: {{ .Values.persistentVolume.storageClassName | quote }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Release.Name }}-models
+  namespace: {{ .Release.Namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.persistentVolume.models.size }}
+  storageClassName: {{ .Values.persistentVolume.storageClassName | quote }}
