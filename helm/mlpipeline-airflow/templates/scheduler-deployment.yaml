@@ -72,7 +72,7 @@ spec:
                   name: mlpipeline-airflow-webserver-secret
                   key: secret-key
             - name: AIRFLOW__CORE__EXECUTION_API_SERVER_URL
-              value: "http://airflow-webserver.{{ .Release.Namespace }}.svc.cluster.local:8080/execution/"
+              value: "http://airflow-webserver.{{ .Release.Namespace }}.svc.cluster.local:8080/airflow/execution/"
             - name: AIRFLOW__LOGGING__BASE_LOG_FOLDER
               value: {{ .Values.persistentVolume.logs.mountPath }}
             {{- range .Values.env }}
