@@ -9,76 +9,77 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
+from kubernetes.client import models as k8s
 
-# Default arguments
 default_args = {
     "owner": "mlpipeline",
     "retries": 2,
     "retry_delay": timedelta(minutes=5),
 }
 
-# DAG definition
 dag = DAG(
     "mlpipeline_inference",
     default_args=default_args,
     description="Batch inference pipeline for sentiment classification",
-    schedule="@daily",  # Run daily
+    schedule="@daily",
     start_date=datetime(2026, 1, 1),
     catchup=False,
     tags=["ml", "inference", "nlp"],
 )
 
-NAMESPACE = "MLPipeline"
+NAMESPACE = "mlpipeline"
+IMAGE = "mlpipeline-training:1.0.1"
 
-
-def log_inference_start():
-    """Log inference pipeline start."""
-    print("Starting batch inference pipeline")
-
-
-# Python task
 log_start = PythonOperator(
     task_id="log_inference_start",
-    python_callable=log_inference_start,
+    python_callable=lambda: print("Starting batch inference pipeline"),
     dag=dag,
 )
 
-# Kubernetes task for batch inference
 inference_task = KubernetesPodOperator(
     task_id="run_batch_inference",
     namespace=NAMESPACE,
-    image="pytorch/pytorch:2.0-cuda11.8-runtime-ubuntu22.04",
-    cmds=["python"],
+    image=IMAGE,
+    image_pull_policy="IfNotPresent",
+    cmds=["python", "-c"],
     arguments=[
-        "-c",
         """
 import sys
-sys.path.insert(0, "/airflow/dags")
+sys.path.insert(0, "/app")
 from src.models.inference import SentimentPredictor
 
 predictor = SentimentPredictor("/models/trained_model")
 
-# Load batch data from file
 test_texts = [
     "This product exceeded all my expectations!",
     "Not recommended, poor quality.",
-    "Average product, nothing special."
+    "Average product, nothing special.",
 ]
 
-# Run inference
 results = predictor.predict_batch(test_texts)
 
-# Save results
 import json
-with open("/data/processed/predictions.json", "w") as f:
+output_path = "/models/predictions.json"
+with open(output_path, "w") as f:
     json.dump(results, f, indent=2)
 
-print(f"Processed {len(results)} predictions")
-""",
+print(f"Processed {len(results)} predictions — saved to {output_path}")
+for text, result in zip(test_texts, results):
+    print(f"{result['label']} ({result['confidence']:.2f}) | {text[:60]}")
+"""
     ],
     name="inference-pod",
     in_cluster=True,
     get_logs=True,
+    volume_mounts=[k8s.V1VolumeMount(name="models", mount_path="/models")],
+    volumes=[
+        k8s.V1Volume(
+            name="models",
+            persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
+                claim_name="mlpipeline-serving-models"
+            ),
+        )
+    ],
     dag=dag,
 )
 
@@ -88,5 +89,4 @@ log_completion = PythonOperator(
     dag=dag,
 )
 
-# Task dependencies
 log_start >> inference_task >> log_completion
