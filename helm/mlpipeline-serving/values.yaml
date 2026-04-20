@@ -49,7 +49,7 @@ persistence:
   storageClassName: "standard"
   size: 10Gi
   mountPath: /models
-  subPath: models
+  subPath: ""
 
 # Autoscaling configuration
 autoscaling:
