@@ -25,5 +25,6 @@ jobs:
           curl -s -o /dev/null -w "%{http_code}" \
             -X POST "$ARGOCD_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
-            -d '{"ref":"refs/heads/main"}' \
+            -H "X-GitHub-Event: push" \
+            -d '{"ref":"refs/heads/main","repository":{"html_url":"https://github.com/${{ github.repository }}"}}' \
           | grep -qE "^(200|204)$" && echo "Webhook delivered" || echo "Webhook failed"
