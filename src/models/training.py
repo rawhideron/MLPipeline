@@ -4,8 +4,10 @@ import logging
 from pathlib import Path
 from typing import Dict, Tuple
 
+import numpy as np
 import torch
 import yaml
+from sklearn.metrics import accuracy_score
 from transformers import (
     AutoTokenizer,
     AutoModelForSequenceClassification,
@@ -131,7 +133,14 @@ class SentimentTrainer:
             save_strategy="epoch",
             load_best_model_at_end=True,
             metric_for_best_model="accuracy",
+            use_cpu=not torch.cuda.is_available(),
+            report_to="none",
         )
+
+        def compute_metrics(eval_pred):
+            logits, labels = eval_pred
+            predictions = np.argmax(logits, axis=-1)
+            return {"accuracy": accuracy_score(labels, predictions)}
 
         # Data collator
         data_collator = DataCollatorWithPadding(self.tokenizer)
@@ -143,6 +152,7 @@ class SentimentTrainer:
             train_dataset=train_data,
             eval_dataset=val_data,
             data_collator=data_collator,
+            compute_metrics=compute_metrics,
         )
 
         # Train
