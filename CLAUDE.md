@@ -47,6 +47,15 @@ This is an end-to-end NLP sentiment classification pipeline deployed on a `kind-
 - `src/models/inference.py` (`SentimentPredictor`) reads from the same path that training writes to — they share the `/models/trained_model` persistent volume in-cluster.
 - DAG tasks use `KubernetesPodOperator` with `in_cluster=True`, so they rely on the service account RBAC defined in `kubernetes/service-accounts.yaml`.
 
+## Airflow Reference
+
+When investigating or changing any Airflow configuration, consult the official docs first:
+
+- **Configuration reference**: [configurations-ref](https://airflow.apache.org/docs/apache-airflow/stable/configurations-ref.html)
+  - Section names and env var names change between major versions — always verify against the running version
+  - Key sections for this deployment: `[core]`, `[api]`, `[api_auth]`, `[execution_api]`, `[kubernetes_executor]`
+- **Main docs root**: [airflow.apache.org/docs](https://airflow.apache.org/docs/)
+
 ## Infrastructure Notes
 
 - Cluster: `reunion` (local Kind — `kind-reunion` in some older docs refers to the same cluster)
