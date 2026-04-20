@@ -20,7 +20,7 @@ spec:
         component: webserver
       annotations:
         checksum/webserver-config: {{ include (print $.Template.BasePath "/webserver-config.yaml") . | sha256sum }}
-        kubectl.kubernetes.io/restartedAt: "2026-04-19T21:00:00Z"
+        kubectl.kubernetes.io/restartedAt: "2026-04-20T14:00:00Z"
     spec:
       serviceAccountName: airflow
       initContainers:
@@ -63,6 +63,11 @@ spec:
             - name: AIRFLOW__API__BASE_URL
               value: "https://mlpipeline.duckdns.org/airflow"
             - name: AIRFLOW__API__SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-webserver-secret
+                  key: secret-key
+            - name: AIRFLOW__API_AUTH__JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: {{ .Release.Name }}-webserver-secret

@@ -19,7 +19,7 @@ spec:
         app: airflow
         component: scheduler
       annotations:
-        kubectl.kubernetes.io/restartedAt: "2026-04-19T17:45:00Z"
+        kubectl.kubernetes.io/restartedAt: "2026-04-20T14:00:00Z"
     spec:
       serviceAccountName: airflow
       initContainers:
@@ -67,6 +67,11 @@ spec:
             - name: AIRFLOW__KUBERNETES_EXECUTOR__POD_TEMPLATE_FILE
               value: /opt/airflow/pod_template.yaml
             - name: AIRFLOW__API__SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: mlpipeline-airflow-webserver-secret
+                  key: secret-key
+            - name: AIRFLOW__API_AUTH__JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: mlpipeline-airflow-webserver-secret
