@@ -70,7 +70,9 @@ spec:
           volumeMounts:
             - name: models
               mountPath: {{ .Values.persistence.mountPath }}
+              {{- if .Values.persistence.subPath }}
               subPath: {{ .Values.persistence.subPath }}
+              {{- end }}
       volumes:
         - name: models
           {{- if .Values.persistence.enabled }}
