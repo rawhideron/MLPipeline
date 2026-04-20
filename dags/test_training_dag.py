@@ -112,7 +112,7 @@ ds = ds.rename_column("label", "labels")
 ds.set_format("torch", columns=["input_ids", "attention_mask", "labels"])
 
 args = TrainingArguments(
-    output_dir="/models/trained_model",
+    output_dir="/models/test_trained_model",
     num_train_epochs=1,
     per_device_train_batch_size=8,
     per_device_eval_batch_size=8,
@@ -125,9 +125,9 @@ args = TrainingArguments(
 
 trainer = Trainer(model=model, args=args, train_dataset=ds["train"], eval_dataset=ds["test"])
 trainer.train()
-trainer.save_model("/models/trained_model")
-tokenizer.save_pretrained("/models/trained_model")
-print("Model saved to /models/trained_model")
+trainer.save_model("/models/test_trained_model")
+tokenizer.save_pretrained("/models/test_trained_model")
+print("Model saved to /models/test_trained_model")
 """
     ],
     name="train-model",
@@ -161,8 +161,8 @@ from transformers import pipeline
 
 classifier = pipeline(
     "text-classification",
-    model="/models/trained_model",
-    tokenizer="/models/trained_model",
+    model="/models/test_trained_model",
+    tokenizer="/models/test_trained_model",
 )
 
 samples = [
@@ -200,7 +200,7 @@ print(f"\\nAccuracy: {correct}/{len(samples)} = {correct/len(samples)*100:.0f}%"
 log_complete = PythonOperator(
     task_id="log_complete",
     python_callable=lambda: print(
-        "Test training pipeline complete — model at /models/trained_model"
+        "Test training pipeline complete — model at /models/test_trained_model"
     ),
     dag=dag,
 )
