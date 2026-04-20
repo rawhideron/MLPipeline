@@ -12,6 +12,7 @@ This DAG orchestrates the following steps:
 from datetime import datetime, timedelta
 
 from airflow import DAG
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from airflow.providers.standard.operators.python import PythonOperator
 from kubernetes.client import models as k8s
@@ -167,6 +168,13 @@ log_completion_task = PythonOperator(
     dag=dag,
 )
 
+trigger_inference_task = TriggerDagRunOperator(
+    task_id="trigger_inference",
+    trigger_dag_id="mlpipeline_inference",
+    wait_for_completion=False,
+    dag=dag,
+)
+
 # Task dependencies
 (
     log_start_task
@@ -175,4 +183,5 @@ log_completion_task = PythonOperator(
     >> training_task
     >> evaluation_task
     >> log_completion_task
+    >> trigger_inference_task
 )
