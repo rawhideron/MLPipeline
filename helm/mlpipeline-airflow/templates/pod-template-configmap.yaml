@@ -24,7 +24,7 @@ data:
             - name: AIRFLOW__CORE__DAGS_FOLDER
               value: /opt/airflow/dags/repo/dags
             - name: AIRFLOW__CORE__EXECUTION_API_SERVER_URL
-              value: "http://airflow-webserver.{{ .Release.Namespace }}.svc.cluster.local:8080/execution/"
+              value: "http://airflow-webserver.{{ .Release.Namespace }}.svc.cluster.local:8080/airflow/execution/"
             - name: AIRFLOW__API__SECRET_KEY
               valueFrom:
                 secretKeyRef:
