@@ -119,7 +119,7 @@ args = TrainingArguments(
     eval_strategy="epoch",
     save_strategy="epoch",
     load_best_model_at_end=True,
-    no_cuda=not torch.cuda.is_available(),
+    use_cpu=not torch.cuda.is_available(),
     report_to="none",
 )
 
