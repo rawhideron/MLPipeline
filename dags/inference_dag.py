@@ -28,7 +28,7 @@ dag = DAG(
 )
 
 NAMESPACE = "mlpipeline"
-IMAGE = "mlpipeline-training:1.0.3"
+IMAGE = "mlpipeline-training:1.0.4"
 
 log_start = PythonOperator(
     task_id="log_inference_start",
