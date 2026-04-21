@@ -7,11 +7,11 @@ model:
 
 training:
   epochs: 3
-  batch_size: 4
+  batch_size: 2
   learning_rate: 2.0e-5
   weight_decay: 0.01
   warmup_steps: 500
-  gradient_accumulation_steps: 2
+  gradient_accumulation_steps: 4
   max_grad_norm: 1.0
 
 data:

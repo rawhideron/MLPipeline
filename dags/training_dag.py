@@ -138,8 +138,8 @@ training_task = KubernetesPodOperator(
     in_cluster=True,
     get_logs=True,
     container_resources=k8s.V1ResourceRequirements(
-        requests={"memory": "2Gi", "cpu": "1"},
-        limits={"memory": "4Gi", "cpu": "2"},
+        requests={"memory": "1Gi", "cpu": "1"},
+        limits={"memory": "2560Mi", "cpu": "2"},
     ),
     volumes=[_models_volume()],
     volume_mounts=[_models_mount()],
