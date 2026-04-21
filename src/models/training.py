@@ -56,11 +56,17 @@ class SentimentTrainer:
         test_split = self.config["data"]["test_split"]
 
         # Split train into train / (val + test), then split the held-out half evenly
-        split = dataset["train"].train_test_split(test_size=(val_split + test_split), seed=42)
+        split = dataset["train"].train_test_split(
+            test_size=(val_split + test_split), seed=42
+        )
         val_test = split["test"].train_test_split(test_size=0.5, seed=42)
 
         return DatasetDict(
-            {"train": split["train"], "validation": val_test["train"], "test": val_test["test"]}
+            {
+                "train": split["train"],
+                "validation": val_test["train"],
+                "test": val_test["test"],
+            }
         )
 
     def preprocess_function(self, examples):
@@ -118,7 +124,9 @@ class SentimentTrainer:
             num_train_epochs=self.config["training"]["epochs"],
             per_device_train_batch_size=self.config["training"]["batch_size"],
             per_device_eval_batch_size=self.config["training"]["batch_size"],
-            gradient_accumulation_steps=self.config["training"]["gradient_accumulation_steps"],
+            gradient_accumulation_steps=self.config["training"][
+                "gradient_accumulation_steps"
+            ],
             learning_rate=self.config["training"]["learning_rate"],
             weight_decay=self.config["training"]["weight_decay"],
             warmup_steps=self.config["training"]["warmup_steps"],
