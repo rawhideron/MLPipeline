@@ -35,6 +35,8 @@ data:
                 secretKeyRef:
                   name: mlpipeline-airflow-webserver-secret
                   key: secret-key
+            - name: AIRFLOW__WORKERS__MAX_FAILED_HEARTBEATS
+              value: "60"
           volumeMounts:
             - name: dags
               mountPath: /opt/airflow/dags
