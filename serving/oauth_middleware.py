@@ -111,7 +111,7 @@ class KeycloakOAuth:
 keycloak_oauth = KeycloakOAuth()
 
 
-async def verify_token(
+def verify_token(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> Dict:
     """
