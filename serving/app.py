@@ -40,7 +40,9 @@ def _setup_tracing() -> None:
     resource = Resource.create({SERVICE_NAME: "mlpipeline-serving"})
     provider = TracerProvider(resource=resource)
     provider.add_span_processor(
-        BatchSpanProcessor(OTLPSpanExporter(endpoint=f"http://{node_ip}:4317", insecure=True))
+        BatchSpanProcessor(
+            OTLPSpanExporter(endpoint=f"http://{node_ip}:4317", insecure=True)
+        )
     )
     trace.set_tracer_provider(provider)
     FastAPIInstrumentor.instrument_app(app)
