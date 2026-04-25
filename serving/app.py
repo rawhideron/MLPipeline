@@ -41,7 +41,7 @@ def _setup_tracing() -> None:
     provider = TracerProvider(resource=resource)
     provider.add_span_processor(
         BatchSpanProcessor(
-            OTLPSpanExporter(endpoint=f"http://{node_ip}:4317", insecure=True)
+            OTLPSpanExporter(endpoint=f"{node_ip}:4317", insecure=True)
         )
     )
     trace.set_tracer_provider(provider)
