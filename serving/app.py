@@ -1,6 +1,7 @@
 """FastAPI application for model serving with Keycloak OAuth."""
 
 import logging
+import os
 
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.openapi.docs import get_swagger_ui_html
@@ -21,6 +22,34 @@ app = FastAPI(
     version="1.0.0",
     docs_url=None,
 )
+
+
+def _setup_tracing() -> None:
+    node_ip = os.getenv("NODE_IP")
+    if not node_ip:
+        logger.info("NODE_IP not set — tracing disabled")
+        return
+
+    from opentelemetry import trace
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+    resource = Resource.create({SERVICE_NAME: "mlpipeline-serving"})
+    provider = TracerProvider(resource=resource)
+    provider.add_span_processor(
+        BatchSpanProcessor(
+            OTLPSpanExporter(endpoint=f"http://{node_ip}:4317", insecure=True)
+        )
+    )
+    trace.set_tracer_provider(provider)
+    FastAPIInstrumentor.instrument_app(app)
+    logger.info("Tracing enabled → %s:4317", node_ip)
+
+
+_setup_tracing()
 
 
 @app.get("/docs", include_in_schema=False, response_class=HTMLResponse)

@@ -33,6 +33,10 @@ spec:
             - containerPort: 8000
               name: http
           env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
             {{- range .Values.env }}
             - name: {{ .name }}
               value: {{ .value | quote }}
