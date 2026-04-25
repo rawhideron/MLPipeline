@@ -1,0 +1,38 @@
+name: Promote dev → main
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [dev]
+    types: [completed]
+
+jobs:
+  promote:
+    name: Open dev → main PR
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Open or update dev → main PR with auto-merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          existing=$(gh pr list --base main --head dev --state open --json number -q '.[0].number')
+          if [ -n "$existing" ]; then
+            echo "PR #$existing already open — ensuring auto-merge is enabled"
+            gh pr merge "$existing" --merge --auto
+          else
+            number=$(gh pr create \
+              --base main \
+              --head dev \
+              --title "Promote dev → main" \
+              --body "Automated promotion: CI passed on \`dev\`." \
+              | grep -oE '[0-9]+$')
+            echo "Created PR #$number"
+            gh pr merge "$number" --merge --auto
+          fi
