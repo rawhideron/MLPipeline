@@ -10,3 +10,8 @@ RUN pip install --no-cache-dir \
 
 COPY src/ /app/src/
 COPY configs/ /app/configs/
+
+RUN groupadd -r appuser && useradd -r -g appuser appuser \
+    && chown -R appuser:appuser /app
+
+USER appuser

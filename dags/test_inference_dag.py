@@ -12,12 +12,13 @@ Requires the serving pod to be running and the model to be loaded
 (run mlpipeline_test_training first if model_loaded is false).
 """
 
+import os
 from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
 
-SERVING_URL = "http://mlpipeline-serving.mlpipeline.svc.cluster.local:8000"
+SERVING_URL = os.environ.get("SERVING_URL", "https://mlpipeline.duckdns.org")
 
 default_args = {
     "owner": "mlpipeline",

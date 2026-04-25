@@ -11,7 +11,12 @@ COPY src/ /app/src/
 COPY serving/ /app/serving/
 COPY configs/ /app/configs/
 
+RUN groupadd -r appuser && useradd -r -g appuser appuser \
+    && chown -R appuser:appuser /app
+
 WORKDIR /app/serving
+
+USER appuser
 
 EXPOSE 8000
 
