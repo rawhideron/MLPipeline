@@ -33,7 +33,7 @@ class KeycloakOAuth:
             client_secret: OAuth client secret (from env var OAUTH_CLIENT_SECRET)
         """
         self.realm_url = realm_url or os.getenv(
-            "KEYCLOAK_REALM_URL", "http://keycloak:8080/realms/MLPipeline"
+            "KEYCLOAK_REALM_URL", "https://keycloak:8443/realms/MLPipeline"
         )
         self.client_id = client_id or os.getenv("OAUTH_CLIENT_ID", "mlpipeline-serving")
         self.client_secret = client_secret or os.getenv("OAUTH_CLIENT_SECRET")
