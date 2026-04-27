@@ -91,7 +91,8 @@ class SentimentTrainer:
         logger.info("Preprocessing dataset...")
 
         tokenized = dataset.map(
-            self.preprocess_function, batched=True, remove_columns=["text"]
+            self.preprocess_function, batched=True, remove_columns=["text"],
+            keep_in_memory=True,
         )
 
         tokenized = tokenized.rename_column("label", "labels")
@@ -135,6 +136,7 @@ class SentimentTrainer:
             save_steps=500,
             eval_strategy="epoch",
             save_strategy="epoch",
+            save_total_limit=1,
             load_best_model_at_end=True,
             metric_for_best_model="accuracy",
             use_cpu=not torch.cuda.is_available(),
