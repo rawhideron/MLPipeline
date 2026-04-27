@@ -91,7 +91,9 @@ class SentimentTrainer:
         logger.info("Preprocessing dataset...")
 
         tokenized = dataset.map(
-            self.preprocess_function, batched=True, remove_columns=["text"],
+            self.preprocess_function,
+            batched=True,
+            remove_columns=["text"],
             keep_in_memory=True,
         )
 
