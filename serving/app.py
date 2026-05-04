@@ -38,12 +38,13 @@ def _setup_tracing() -> None:
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
+    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", f"http://{node_ip}:4317")
+    insecure = not otlp_endpoint.startswith("https://")
+
     resource = Resource.create({SERVICE_NAME: "mlpipeline-serving"})
     provider = TracerProvider(resource=resource)
     provider.add_span_processor(
-        BatchSpanProcessor(
-            OTLPSpanExporter(endpoint=f"http://{node_ip}:4317", insecure=True)
-        )
+        BatchSpanProcessor(OTLPSpanExporter(endpoint=otlp_endpoint, insecure=insecure))
     )
     trace.set_tracer_provider(provider)
     FastAPIInstrumentor.instrument_app(app)
