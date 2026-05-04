@@ -70,14 +70,17 @@ class InferenceHandler:
 
     def get_model_info(self) -> Dict:
         """Get information about loaded model."""
-        return {
+        info: Dict = {
             "model_path": self.model_path,
             "model_loaded": self.is_ready(),
-            "model_name": "distilbert-base-uncased",
-            "task": "sentiment-classification",
-            "num_labels": 2,
-            "labels": ["negative", "positive"],
         }
+        if self.is_ready():
+            cfg = self.model.model.config
+            info["model_name"] = cfg.name_or_path
+            info["task"] = "sentiment-classification"
+            info["num_labels"] = cfg.num_labels
+            info["labels"] = list(cfg.id2label.values()) if cfg.id2label else []
+        return info
 
 
 if __name__ == "__main__":

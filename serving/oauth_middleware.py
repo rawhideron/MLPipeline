@@ -45,22 +45,31 @@ class KeycloakOAuth:
         self.public_key = None
         self._fetch_public_key()
 
-    def _fetch_public_key(self):
-        """Fetch and cache Keycloak public key."""
+    def _fetch_public_key(self, kid: str = None):
+        """Fetch and cache Keycloak public key, matching by kid when provided."""
         try:
             with httpx.Client() as client:
                 response = client.get(self.jwks_uri)
                 response.raise_for_status()
                 jwks = response.json()
-                # For simplicity, use first key (in production, match by kid)
-                if jwks.get("keys"):
-                    key_data = jwks["keys"][0]
-                    self.public_key = jwt.algorithms.RSAAlgorithm.from_jwk(
-                        json.dumps(key_data)
-                    )
-                    logger.info("Successfully fetched Keycloak public key")
+                keys = jwks.get("keys", [])
+                if not keys:
+                    logger.error("JWKS response contained no keys")
+                    return
+                if kid:
+                    matched = [k for k in keys if k.get("kid") == kid]
+                    key_data = matched[0] if matched else keys[0]
+                else:
+                    key_data = keys[0]
+                self.public_key = jwt.algorithms.RSAAlgorithm.from_jwk(
+                    json.dumps(key_data)
+                )
+                logger.info(
+                    "Successfully fetched Keycloak public key (kid=%s)",
+                    key_data.get("kid"),
+                )
         except Exception as e:
-            logger.error(f"Failed to fetch Keycloak public key: {str(e)}")
+            logger.error("Failed to fetch Keycloak public key: %s", e)
 
     def verify_token(self, token: str) -> Dict:
         """
@@ -77,7 +86,8 @@ class KeycloakOAuth:
         """
         try:
             if not self.public_key:
-                self._fetch_public_key()
+                kid = jwt.get_unverified_header(token).get("kid")
+                self._fetch_public_key(kid=kid)
 
             payload = jwt.decode(
                 token,
@@ -87,7 +97,9 @@ class KeycloakOAuth:
                 options={"verify_signature": True},
             )
 
-            logger.info(f"Token verified for user: {payload.get('preferred_username')}")
+            logger.info(
+                "Token verified for user: %s", payload.get("preferred_username")
+            )
             return payload
 
         except jwt.ExpiredSignatureError:
@@ -96,12 +108,12 @@ class KeycloakOAuth:
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired"
             )
         except jwt.InvalidTokenError as e:
-            logger.warning(f"Invalid token: {str(e)}")
+            logger.warning("Invalid token: %s", e)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
             )
         except Exception as e:
-            logger.error(f"Token verification error: {str(e)}")
+            logger.error("Token verification error: %s", e)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
             )

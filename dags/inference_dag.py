@@ -4,6 +4,7 @@ Apache Airflow DAG for batch inference pipeline.
 This DAG runs inference on new data using the trained model.
 """
 
+import logging
 from datetime import datetime, timedelta
 
 from airflow import DAG
@@ -30,9 +31,20 @@ dag = DAG(
 NAMESPACE = "mlpipeline"
 IMAGE = "mlpipeline-training:1.0.4"
 
+logger = logging.getLogger(__name__)
+
+
+def log_inference_start():
+    logger.info("Starting batch inference pipeline")
+
+
+def log_inference_complete():
+    logger.info("Inference pipeline completed")
+
+
 log_start = PythonOperator(
     task_id="log_inference_start",
-    python_callable=lambda: print("Starting batch inference pipeline"),
+    python_callable=log_inference_start,
     dag=dag,
 )
 
@@ -85,7 +97,7 @@ for text, result in zip(test_texts, results):
 
 log_completion = PythonOperator(
     task_id="log_inference_complete",
-    python_callable=lambda: print("Inference pipeline completed"),
+    python_callable=log_inference_complete,
     dag=dag,
 )
 

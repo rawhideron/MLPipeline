@@ -5,8 +5,9 @@ import os
 
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import HTMLResponse, JSONResponse
-from pydantic import BaseModel
+from fastapi.responses import HTMLResponse
+from pydantic import BaseModel, field_validator
+from typing import Annotated, Dict, List
 
 from oauth_middleware import verify_token
 from inference_handler import InferenceHandler
@@ -74,7 +75,7 @@ class PredictionResponse(BaseModel):
 
     label: str
     confidence: float
-    probabilities: dict
+    probabilities: Dict[str, float]
 
 
 class HealthResponse(BaseModel):
@@ -95,8 +96,11 @@ async def health_check():
 
 
 # Prediction endpoint (OAuth protected)
+TokenDep = Annotated[dict, Depends(verify_token)]
+
+
 @app.post("/predict", response_model=PredictionResponse)
-async def predict(request: PredictionRequest, token: dict = Depends(verify_token)):
+async def predict(request: PredictionRequest, token: TokenDep):
     """
     Predict sentiment for input text.
 
@@ -110,44 +114,52 @@ async def predict(request: PredictionRequest, token: dict = Depends(verify_token
             probabilities=result["probabilities"],
         )
     except Exception as e:
-        logger.error(f"Prediction error: {str(e)}")
+        logger.error("Prediction error: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Prediction failed: {str(e)}",
+            detail="Prediction failed",
         )
+
+
+class BatchPredictionRequest(BaseModel):
+    """Request model for batch prediction."""
+
+    texts: List[str]
+
+    @field_validator("texts")
+    @classmethod
+    def texts_must_be_non_empty(cls, v: List[str]) -> List[str]:
+        if not v:
+            raise ValueError("texts list must not be empty")
+        if len(v) > 100:
+            raise ValueError("texts list must not exceed 100 items")
+        return v
 
 
 # Batch prediction endpoint (OAuth protected)
 @app.post("/predict-batch")
-async def predict_batch(texts: list, token: dict = Depends(verify_token)):
+async def predict_batch(request: BatchPredictionRequest, token: TokenDep):
     """
     Batch prediction endpoint.
 
     Requires valid Keycloak OAuth token.
     """
     try:
-        results = inference_handler.predict_batch(texts)
+        results = inference_handler.predict_batch(request.texts)
         return {"predictions": results}
     except Exception as e:
-        logger.error(f"Batch prediction error: {str(e)}")
+        logger.error("Batch prediction error: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Batch prediction failed: {str(e)}",
+            detail="Batch prediction failed",
         )
 
 
 # Model info endpoint
 @app.get("/models")
-async def get_model_info(token: dict = Depends(verify_token)):
+async def get_model_info(token: TokenDep):
     """Get information about loaded model."""
     return inference_handler.get_model_info()
-
-
-# Error handler
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc):
-    """Global HTTP exception handler."""
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 if __name__ == "__main__":
