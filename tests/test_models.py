@@ -56,7 +56,9 @@ class TestModelTraining:
         mock_ds.__getitem__ = MagicMock(return_value=MagicMock())
         mock_ds["train"].train_test_split.return_value = train_split_mock
 
-        with patch("src.models.training.load_dataset", return_value=mock_ds) as mock_load:
+        with patch(
+            "src.models.training.load_dataset", return_value=mock_ds
+        ) as mock_load:
             try:
                 trainer.load_dataset()
             except Exception:

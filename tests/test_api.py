@@ -16,8 +16,16 @@ def mock_inference_handler():
         "probabilities": {"negative": 0.05, "positive": 0.95},
     }
     handler.predict_batch.return_value = [
-        {"label": "positive", "confidence": 0.95, "probabilities": {"negative": 0.05, "positive": 0.95}},
-        {"label": "negative", "confidence": 0.88, "probabilities": {"negative": 0.88, "positive": 0.12}},
+        {
+            "label": "positive",
+            "confidence": 0.95,
+            "probabilities": {"negative": 0.05, "positive": 0.95},
+        },
+        {
+            "label": "negative",
+            "confidence": 0.88,
+            "probabilities": {"negative": 0.88, "positive": 0.12},
+        },
     ]
     handler.get_model_info.return_value = {
         "model_path": "/models/trained_model",
@@ -35,6 +43,7 @@ def app_with_mocks(mock_inference_handler):
     """FastAPI app with mocked inference handler."""
     with patch("serving.app.inference_handler", mock_inference_handler):
         from serving.app import app
+
         yield app
 
 
@@ -65,6 +74,7 @@ def authed_client(app_with_mocks):
 # Health check
 # ---------------------------------------------------------------------------
 
+
 class TestHealthCheck:
     def test_health_check(self, client):
         response = client.get("/health")
@@ -74,7 +84,9 @@ class TestHealthCheck:
         assert data["model_loaded"] is True
         assert data["version"] == "1.0.0"
 
-    def test_health_check_model_not_loaded(self, mock_inference_handler, app_with_mocks):
+    def test_health_check_model_not_loaded(
+        self, mock_inference_handler, app_with_mocks
+    ):
         mock_inference_handler.is_ready.return_value = False
         c = TestClient(app_with_mocks)
         response = c.get("/health")
@@ -86,6 +98,7 @@ class TestHealthCheck:
 # Docs endpoint
 # ---------------------------------------------------------------------------
 
+
 class TestDocs:
     def test_docs_returns_html(self, client):
         response = client.get("/docs")
@@ -96,6 +109,7 @@ class TestDocs:
 # ---------------------------------------------------------------------------
 # Prediction endpoint (auth required)
 # ---------------------------------------------------------------------------
+
 
 class TestPredictionEndpoint:
     def test_predict_without_auth_fails(self, client):
@@ -114,8 +128,12 @@ class TestPredictionEndpoint:
         assert data["confidence"] == pytest.approx(0.95)
         assert "probabilities" in data
 
-    def test_predict_error_hides_exception_details(self, authed_client, mock_inference_handler):
-        mock_inference_handler.predict.side_effect = RuntimeError("secret internal path /etc/passwd")
+    def test_predict_error_hides_exception_details(
+        self, authed_client, mock_inference_handler
+    ):
+        mock_inference_handler.predict.side_effect = RuntimeError(
+            "secret internal path /etc/passwd"
+        )
         response = authed_client.post("/predict", json={"text": "test"})
         assert response.status_code == 500
         assert "secret internal path" not in response.text
@@ -125,6 +143,7 @@ class TestPredictionEndpoint:
 # ---------------------------------------------------------------------------
 # Batch prediction endpoint (auth required)
 # ---------------------------------------------------------------------------
+
 
 class TestBatchPredictionEndpoint:
     def test_batch_without_auth_fails(self, client):
@@ -148,8 +167,12 @@ class TestBatchPredictionEndpoint:
         response = authed_client.post("/predict-batch", json={"texts": ["t"] * 101})
         assert response.status_code == 422
 
-    def test_batch_error_hides_exception_details(self, authed_client, mock_inference_handler):
-        mock_inference_handler.predict_batch.side_effect = RuntimeError("internal db uri leaked")
+    def test_batch_error_hides_exception_details(
+        self, authed_client, mock_inference_handler
+    ):
+        mock_inference_handler.predict_batch.side_effect = RuntimeError(
+            "internal db uri leaked"
+        )
         response = authed_client.post("/predict-batch", json={"texts": ["anything"]})
         assert response.status_code == 500
         assert "internal db uri" not in response.text
@@ -159,6 +182,7 @@ class TestBatchPredictionEndpoint:
 # ---------------------------------------------------------------------------
 # Model info endpoint (auth required)
 # ---------------------------------------------------------------------------
+
 
 class TestModelInfo:
     def test_model_info_without_auth_fails(self, client):
@@ -177,6 +201,7 @@ class TestModelInfo:
 # ---------------------------------------------------------------------------
 # BatchPredictionRequest model validation (unit level)
 # ---------------------------------------------------------------------------
+
 
 class TestBatchPredictionRequestModel:
     def test_valid_list_accepted(self):
@@ -209,6 +234,7 @@ class TestBatchPredictionRequestModel:
 # ---------------------------------------------------------------------------
 # Application structure
 # ---------------------------------------------------------------------------
+
 
 class TestAPIStructure:
     def test_app_initialization(self, app_with_mocks):
