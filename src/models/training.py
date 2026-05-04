@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import torch
@@ -48,8 +48,7 @@ class SentimentTrainer:
         dataset_name = self.config["data"]["dataset"]
         logger.info(f"Loading dataset: {dataset_name}")
 
-        # For this example, using IMDB movie reviews
-        dataset = load_dataset("imdb")
+        dataset = load_dataset(dataset_name)
 
         # Split into train/val/test
         val_split = self.config["data"]["validation_split"]
@@ -78,7 +77,7 @@ class SentimentTrainer:
             truncation=True,
         )
 
-    def prepare_dataset(self, dataset: DatasetDict) -> Tuple[any, any, any]:
+    def prepare_dataset(self, dataset: DatasetDict) -> Tuple[Any, Any, Any]:
         """
         Tokenize and prepare dataset.
 

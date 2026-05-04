@@ -65,7 +65,7 @@ class SentimentPredictor:
 
     def predict_batch(self, texts: List[str]) -> List[Dict]:
         """
-        Predict sentiment for multiple texts.
+        Predict sentiment for multiple texts in a single forward pass.
 
         Args:
             texts: List of input texts
@@ -73,10 +73,29 @@ class SentimentPredictor:
         Returns:
             List of predictions
         """
-        predictions = []
-        for text in texts:
-            predictions.append(self.predict(text))
-        return predictions
+        inputs = self.tokenizer(
+            texts, padding=True, truncation=True, max_length=512, return_tensors="pt"
+        ).to(self.device)
+
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+
+        logits = outputs.logits
+        probabilities = torch.softmax(logits, dim=-1)
+        predictions = torch.argmax(logits, dim=-1).tolist()
+
+        return [
+            {
+                "text": text,
+                "label": self.labels[pred],
+                "confidence": float(probabilities[i][pred]),
+                "probabilities": {
+                    "negative": float(probabilities[i][0]),
+                    "positive": float(probabilities[i][1]),
+                },
+            }
+            for i, (text, pred) in enumerate(zip(texts, predictions))
+        ]
 
 
 if __name__ == "__main__":

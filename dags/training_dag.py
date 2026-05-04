@@ -9,6 +9,7 @@ This DAG orchestrates the following steps:
 5. Pipeline completion log
 """
 
+import logging
 from datetime import datetime, timedelta
 
 from airflow import DAG
@@ -17,6 +18,8 @@ from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperato
 from airflow.providers.standard.operators.python import PythonOperator
 from kubernetes.client import models as k8s
 import yaml
+
+logger = logging.getLogger(__name__)
 
 default_args = {
     "owner": "mlpipeline",
@@ -162,9 +165,14 @@ evaluation_task = KubernetesPodOperator(
     dag=dag,
 )
 
+
+def log_pipeline_complete():
+    logger.info("Training pipeline completed successfully")
+
+
 log_completion_task = PythonOperator(
     task_id="log_pipeline_complete",
-    python_callable=lambda: print("Training pipeline completed successfully"),
+    python_callable=log_pipeline_complete,
     dag=dag,
 )
 
