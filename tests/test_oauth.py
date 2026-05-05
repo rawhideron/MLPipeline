@@ -151,6 +151,31 @@ class TestFetchPublicKey:
 
         assert oauth.public_key is None
 
+    def test_no_kid_uses_first_key(self):
+        oauth = self._make_oauth()
+
+        mock_http_client = MagicMock()
+        mock_http_client.__enter__.return_value.get.return_value = _make_jwks_response(
+            [_make_rsa_jwk("key1")]
+        )
+
+        captured = {}
+
+        def fake_from_jwk(key_json):
+            captured["key"] = json.loads(key_json)
+            return MagicMock()
+
+        with (
+            patch("httpx.Client", return_value=mock_http_client),
+            patch(
+                "serving.oauth_middleware.jwt.algorithms.RSAAlgorithm", create=True
+            ) as mock_rsa,
+        ):
+            mock_rsa.from_jwk.side_effect = fake_from_jwk
+            oauth._fetch_public_key()  # no kid — hits the else branch
+
+        assert captured["key"]["kid"] == "key1"
+
 
 class TestVerifyToken:
     """Test JWT token verification."""
@@ -226,15 +251,37 @@ class TestVerifyToken:
 
         expected_payload = {"sub": "u1", "preferred_username": "bob"}
 
+        def fake_fetch(kid=None):
+            oauth.public_key = MagicMock()
+
         with (
             patch(
                 "jwt.get_unverified_header",
                 return_value={"kid": "key99", "alg": "RS256"},
             ),
-            patch.object(oauth, "_fetch_public_key"),
+            patch.object(oauth, "_fetch_public_key", side_effect=fake_fetch),
             patch("jwt.decode", return_value=expected_payload),
         ):
-            oauth.public_key = MagicMock()
             payload = oauth.verify_token("some.token")
 
         assert payload["sub"] == "u1"
+
+
+class TestVerifyTokenDependency:
+    """Test the module-level verify_token FastAPI dependency function."""
+
+    def test_delegates_to_keycloak_oauth(self):
+        from serving import oauth_middleware
+
+        mock_creds = MagicMock()
+        mock_creds.credentials = "bearer.token.here"
+
+        expected = {"sub": "user1", "preferred_username": "alice"}
+
+        with patch.object(
+            oauth_middleware.keycloak_oauth, "verify_token", return_value=expected
+        ) as mock_verify:
+            result = oauth_middleware.verify_token(mock_creds)
+
+        mock_verify.assert_called_once_with("bearer.token.here")
+        assert result["sub"] == "user1"
