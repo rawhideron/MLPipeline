@@ -1,5 +1,7 @@
 """Unit tests for FastAPI application."""
 
+import sys
+
 import pytest
 from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
@@ -247,6 +249,47 @@ class TestAPIStructure:
         assert "/predict" in routes
         assert "/predict-batch" in routes
         assert "/models" in routes
+
+
+# ---------------------------------------------------------------------------
+# Tracing setup
+# ---------------------------------------------------------------------------
+
+
+class TestTracingSetup:
+    def test_setup_tracing_when_node_ip_set(self, monkeypatch):
+        monkeypatch.setenv("NODE_IP", "10.0.0.1")
+
+        mock_sdk_resources = MagicMock()
+        mock_sdk_resources.SERVICE_NAME = "service.name"
+
+        otel_modules = {
+            "opentelemetry": MagicMock(),
+            "opentelemetry.trace": MagicMock(),
+            "opentelemetry.exporter": MagicMock(),
+            "opentelemetry.exporter.otlp": MagicMock(),
+            "opentelemetry.exporter.otlp.proto": MagicMock(),
+            "opentelemetry.exporter.otlp.proto.grpc": MagicMock(),
+            "opentelemetry.exporter.otlp.proto.grpc.trace_exporter": MagicMock(),
+            "opentelemetry.instrumentation": MagicMock(),
+            "opentelemetry.instrumentation.fastapi": MagicMock(),
+            "opentelemetry.sdk": MagicMock(),
+            "opentelemetry.sdk.resources": mock_sdk_resources,
+            "opentelemetry.sdk.trace": MagicMock(),
+            "opentelemetry.sdk.trace.export": MagicMock(),
+        }
+
+        with patch.dict(sys.modules, otel_modules):
+            from serving.app import _setup_tracing
+
+            _setup_tracing()
+
+    def test_setup_tracing_skipped_without_node_ip(self, monkeypatch):
+        monkeypatch.delenv("NODE_IP", raising=False)
+
+        from serving.app import _setup_tracing
+
+        _setup_tracing()
 
 
 if __name__ == "__main__":
