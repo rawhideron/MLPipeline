@@ -68,7 +68,7 @@ def _models_mount():
 def log_pipeline_start():
     with open(CONFIG_PATH) as f:
         config = yaml.safe_load(f)
-    print(f"Starting training pipeline with config: {config['model']['name']}")
+    logger.info("Starting training pipeline with config: %s", config["model"]["name"])
 
 
 log_start_task = PythonOperator(

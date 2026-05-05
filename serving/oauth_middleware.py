@@ -139,10 +139,8 @@ def verify_token(
 
 
 if __name__ == "__main__":
-    import json
-
     # Test OAuth initialization
     oauth = KeycloakOAuth()
-    print(f"Keycloak realm URL: {oauth.realm_url}")
-    print(f"Client ID: {oauth.client_id}")
-    print("OAuth middleware initialized successfully")
+    logger.info("Keycloak realm URL: %s", oauth.realm_url)
+    logger.info("Client ID: %s", oauth.client_id)
+    logger.info("OAuth middleware initialized successfully")
