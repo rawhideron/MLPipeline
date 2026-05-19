@@ -173,28 +173,34 @@ class SentimentTrainer:
         )
 
         with mlflow.start_run() as run:
-            mlflow.log_params({
-                "model_name": self.model_name,
-                "epochs": self.config["training"]["epochs"],
-                "batch_size": self.config["training"]["batch_size"],
-                "learning_rate": self.config["training"]["learning_rate"],
-                "weight_decay": self.config["training"]["weight_decay"],
-                "warmup_steps": self.config["training"]["warmup_steps"],
-                "gradient_accumulation_steps": self.config["training"]["gradient_accumulation_steps"],
-                "max_length": self.config["data"]["max_length"],
-                "dataset": self.config["data"]["dataset"],
-            })
+            mlflow.log_params(
+                {
+                    "model_name": self.model_name,
+                    "epochs": self.config["training"]["epochs"],
+                    "batch_size": self.config["training"]["batch_size"],
+                    "learning_rate": self.config["training"]["learning_rate"],
+                    "weight_decay": self.config["training"]["weight_decay"],
+                    "warmup_steps": self.config["training"]["warmup_steps"],
+                    "gradient_accumulation_steps": self.config["training"][
+                        "gradient_accumulation_steps"
+                    ],
+                    "max_length": self.config["data"]["max_length"],
+                    "dataset": self.config["data"]["dataset"],
+                }
+            )
 
             logger.info("Starting training...")
             train_result = trainer.train()
 
             eval_metrics = trainer.evaluate()
             mlflow.log_metric("train_loss", train_result.training_loss)
-            mlflow.log_metrics({
-                k.removeprefix("eval_"): v
-                for k, v in eval_metrics.items()
-                if isinstance(v, float)
-            })
+            mlflow.log_metrics(
+                {
+                    k.removeprefix("eval_"): v
+                    for k, v in eval_metrics.items()
+                    if isinstance(v, float)
+                }
+            )
 
             trainer.save_model(output_dir)
             self.tokenizer.save_pretrained(output_dir)
