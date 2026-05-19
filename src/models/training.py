@@ -152,6 +152,7 @@ class SentimentTrainer:
             load_best_model_at_end=True,
             metric_for_best_model="accuracy",
             use_cpu=not torch.cuda.is_available(),
+            seed=42,
             report_to="none",
         )
 
