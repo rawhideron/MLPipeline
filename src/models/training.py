@@ -1,8 +1,11 @@
 """Model training for NLP sentiment classification."""
 
 import logging
+import sys
 from pathlib import Path
 from typing import Any, Dict, Tuple
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import numpy as np
 import torch
@@ -16,6 +19,7 @@ from transformers import (
     DataCollatorWithPadding,
 )
 from datasets import load_dataset, DatasetDict
+from src.preprocessing.text_cleaning import preprocess_batch
 
 logger = logging.getLogger(__name__)
 
@@ -69,10 +73,11 @@ class SentimentTrainer:
         )
 
     def preprocess_function(self, examples):
-        """Tokenize examples."""
+        """Clean then tokenize examples."""
         max_length = self.config["data"]["max_length"]
+        cleaned = preprocess_batch(examples["text"], clean=True)
         return self.tokenizer(
-            examples["text"],
+            cleaned,
             max_length=max_length,
             truncation=True,
         )
