@@ -1,9 +1,14 @@
 """Model training for NLP sentiment classification."""
 
 import logging
+import os
+import sys
 from pathlib import Path
 from typing import Any, Dict, Tuple
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+import mlflow
 import numpy as np
 import torch
 import yaml
@@ -16,6 +21,7 @@ from transformers import (
     DataCollatorWithPadding,
 )
 from datasets import load_dataset, DatasetDict
+from src.preprocessing.text_cleaning import preprocess_batch
 
 logger = logging.getLogger(__name__)
 
@@ -69,10 +75,11 @@ class SentimentTrainer:
         )
 
     def preprocess_function(self, examples):
-        """Tokenize examples."""
+        """Clean then tokenize examples."""
         max_length = self.config["data"]["max_length"]
+        cleaned = preprocess_batch(examples["text"], clean=True)
         return self.tokenizer(
-            examples["text"],
+            cleaned,
             max_length=max_length,
             truncation=True,
         )
@@ -107,6 +114,10 @@ class SentimentTrainer:
         Returns:
             Dictionary with training results
         """
+        tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "mlruns")
+        mlflow.set_tracking_uri(tracking_uri)
+        mlflow.set_experiment("mlpipeline-sentiment")
+
         # Load and prepare dataset
         dataset = self.load_dataset()
         train_data, val_data, test_data = self.prepare_dataset(dataset)
@@ -141,6 +152,7 @@ class SentimentTrainer:
             load_best_model_at_end=True,
             metric_for_best_model="accuracy",
             use_cpu=not torch.cuda.is_available(),
+            seed=42,
             report_to="none",
         )
 
@@ -149,10 +161,8 @@ class SentimentTrainer:
             predictions = np.argmax(logits, axis=-1)
             return {"accuracy": accuracy_score(labels, predictions)}
 
-        # Data collator
         data_collator = DataCollatorWithPadding(self.tokenizer)
 
-        # Trainer
         trainer = Trainer(
             model=model,
             args=training_args,
@@ -162,17 +172,45 @@ class SentimentTrainer:
             compute_metrics=compute_metrics,
         )
 
-        # Train
-        logger.info("Starting training...")
-        results = trainer.train()
+        with mlflow.start_run() as run:
+            mlflow.log_params(
+                {
+                    "model_name": self.model_name,
+                    "epochs": self.config["training"]["epochs"],
+                    "batch_size": self.config["training"]["batch_size"],
+                    "learning_rate": self.config["training"]["learning_rate"],
+                    "weight_decay": self.config["training"]["weight_decay"],
+                    "warmup_steps": self.config["training"]["warmup_steps"],
+                    "gradient_accumulation_steps": self.config["training"][
+                        "gradient_accumulation_steps"
+                    ],
+                    "max_length": self.config["data"]["max_length"],
+                    "dataset": self.config["data"]["dataset"],
+                }
+            )
 
-        # Save model
-        trainer.save_model(output_dir)
-        self.tokenizer.save_pretrained(output_dir)
+            logger.info("Starting training...")
+            train_result = trainer.train()
 
-        logger.info(f"Model saved to {output_dir}")
+            eval_metrics = trainer.evaluate()
+            mlflow.log_metric("train_loss", train_result.training_loss)
+            mlflow.log_metrics(
+                {
+                    k.removeprefix("eval_"): v
+                    for k, v in eval_metrics.items()
+                    if isinstance(v, float)
+                }
+            )
 
-        return {"train_loss": results.training_loss, "status": "completed"}
+            trainer.save_model(output_dir)
+            self.tokenizer.save_pretrained(output_dir)
+            mlflow.log_artifacts(output_dir, artifact_path="model")
+
+            model_uri = f"runs:/{run.info.run_id}/model"
+            mlflow.register_model(model_uri, "mlpipeline-sentiment")
+            logger.info("Model saved and registered (run_id=%s)", run.info.run_id)
+
+        return {"train_loss": train_result.training_loss, "status": "completed"}
 
 
 if __name__ == "__main__":
