@@ -117,10 +117,24 @@ class ModelEvaluator:
 
 if __name__ == "__main__":
     import sys
+    from datasets import load_dataset
 
     logging.basicConfig(level=logging.INFO)
 
     model_path = sys.argv[1] if len(sys.argv) > 1 else "models/trained_model"
+    metrics_path = sys.argv[2] if len(sys.argv) > 2 else "/models/metrics.json"
+    accuracy_threshold = float(sys.argv[3]) if len(sys.argv) > 3 else 0.85
 
     evaluator = ModelEvaluator(model_path)
-    print(f"Model loaded from {model_path}")
+    logger.info("Model loaded from %s", model_path)
+
+    test_dataset = load_dataset("imdb", split="test[:1000]")
+    metrics = evaluator.evaluate(test_dataset.iter(batch_size=32))
+    evaluator.save_metrics(metrics, metrics_path)
+
+    accuracy = metrics["accuracy"]
+    logger.info("Accuracy: %.4f (threshold: %.2f)", accuracy, accuracy_threshold)
+    if accuracy < accuracy_threshold:
+        raise SystemExit(
+            f"Accuracy {accuracy:.4f} below threshold {accuracy_threshold} — deployment blocked"
+        )
