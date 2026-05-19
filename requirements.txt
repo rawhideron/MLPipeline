@@ -10,7 +10,7 @@ numpy==1.24.3
 fastapi==0.109.0
 uvicorn==0.27.0
 pydantic==2.5.3
-python-multipart==0.0.26
+python-multipart==0.0.27
 
 # Orchestration
 apache-airflow==3.2.0
@@ -23,7 +23,7 @@ SQLAlchemy==2.0.23
 
 # OAuth & Security
 python-keycloak==3.8.0
-authlib==1.6.11
+authlib==1.6.12
 PyJWT==2.12.0
 
 # Data Validation & Versioning
@@ -45,5 +45,5 @@ httpx==0.25.2
 
 # Utilities
 pyyaml==6.0.1
-python-dotenv==1.0.0
+python-dotenv==1.2.2
 requests==2.33.0
