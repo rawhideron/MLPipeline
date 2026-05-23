@@ -88,7 +88,9 @@ class TestSentimentTrainerMethods:
         assert total == 20
 
     @patch("transformers.AutoTokenizer.from_pretrained")
-    def test_preprocess_function_calls_tokenizer_with_correct_args(self, mock_tokenizer_cls):
+    def test_preprocess_function_calls_tokenizer_with_correct_args(
+        self, mock_tokenizer_cls
+    ):
         from src.models.training import SentimentTrainer
 
         mock_tok = MagicMock()
