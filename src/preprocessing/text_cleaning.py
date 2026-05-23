@@ -21,7 +21,7 @@ def clean_text(text: str, lowercase: bool = True, remove_special: bool = True) -
     text = re.sub(r"http\S+|www\.\S+", "", text)
 
     # Remove HTML tags
-    text = re.sub(r"<.*?>", "", text)
+    text = re.sub(r"<[^>]*>", "", text)
 
     # Remove email addresses
     text = re.sub(r"\S+@\S+", "", text)

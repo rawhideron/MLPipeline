@@ -120,7 +120,7 @@ class SentimentTrainer:
 
         # Load and prepare dataset
         dataset = self.load_dataset()
-        train_data, val_data, test_data = self.prepare_dataset(dataset)
+        train_data, val_data, _ = self.prepare_dataset(dataset)
 
         # Load model
         logger.info(f"Loading model: {self.model_name}")
