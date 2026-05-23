@@ -1,5 +1,8 @@
 """Unit tests for model training and inference."""
 
+import json
+
+import numpy as np
 import pytest
 import torch
 from unittest.mock import patch, MagicMock
@@ -71,6 +74,40 @@ class TestModelTraining:
 class TestModelEvaluation:
     """Test model evaluation functionality."""
 
+    def _make_evaluator(self):
+        """ModelEvaluator with mocked model and tokenizer; logits fixed at [[0.2,0.8],[0.9,0.1]]."""
+        logits = torch.tensor([[0.2, 0.8], [0.9, 0.1]])
+        mock_outputs = MagicMock()
+        mock_outputs.logits = logits
+
+        mock_model = MagicMock()
+        mock_model.to.return_value = mock_model
+        mock_model.return_value = mock_outputs
+
+        mock_tok_output = MagicMock()
+        mock_tok_output.to.return_value = {"input_ids": torch.tensor([[1, 2], [3, 4]])}
+        mock_tokenizer = MagicMock()
+        mock_tokenizer.return_value = mock_tok_output
+
+        with (
+            patch(
+                "transformers.AutoModelForSequenceClassification.from_pretrained",
+                return_value=mock_model,
+            ),
+            patch(
+                "transformers.AutoTokenizer.from_pretrained",
+                return_value=mock_tokenizer,
+            ),
+        ):
+            from src.models.evaluation import ModelEvaluator
+
+            evaluator = ModelEvaluator("/path/to/model")
+            evaluator.device = "cpu"
+
+        evaluator.model = mock_model
+        evaluator.tokenizer = mock_tokenizer
+        return evaluator
+
     @patch("transformers.AutoTokenizer.from_pretrained")
     @patch("transformers.AutoModelForSequenceClassification.from_pretrained")
     def test_evaluator_initialization(self, mock_model, mock_tokenizer):
@@ -81,6 +118,52 @@ class TestModelEvaluation:
 
         evaluator = ModelEvaluator("/path/to/model")
         assert evaluator.model_path == "/path/to/model"
+
+    def test_predict_batch_returns_expected_keys_and_shapes(self):
+        evaluator = self._make_evaluator()
+        result = evaluator.predict_batch(["Great film!", "Terrible film."])
+        assert set(result.keys()) == {"predictions", "probabilities", "logits"}
+        assert result["predictions"].shape == (2,)
+        assert result["probabilities"].shape == (2, 2)
+
+    def test_predict_batch_classifies_from_logits(self):
+        evaluator = self._make_evaluator()
+        result = evaluator.predict_batch(["Great!", "Awful!"])
+        # logits [[0.2, 0.8], [0.9, 0.1]] → argmax → [1, 0]
+        np.testing.assert_array_equal(result["predictions"], [1, 0])
+
+    def test_evaluate_returns_all_metric_keys_with_correct_accuracy(self):
+        evaluator = self._make_evaluator()
+        evaluator.predict_batch = MagicMock(
+            return_value={
+                "predictions": np.array([1, 0]),
+                "probabilities": np.array([[0.2, 0.8], [0.7, 0.3]]),
+                "logits": np.array([[-1.0, 1.0], [1.0, -1.0]]),
+            }
+        )
+        fake_dataset = [{"text": ["good film", "bad film"], "label": [1, 0]}]
+
+        metrics = evaluator.evaluate(iter(fake_dataset))
+
+        assert set(metrics.keys()) == {
+            "accuracy",
+            "precision",
+            "recall",
+            "f1",
+            "confusion_matrix",
+        }
+        assert metrics["accuracy"] == 1.0
+
+    def test_save_metrics_writes_valid_json(self, tmp_path):
+        evaluator = self._make_evaluator()
+        metrics = {"accuracy": 0.95, "f1": 0.94}
+        output_path = str(tmp_path / "metrics.json")
+
+        evaluator.save_metrics(metrics, output_path)
+
+        with open(output_path) as f:
+            loaded = json.load(f)
+        assert loaded == metrics
 
 
 class TestInference:
@@ -237,6 +320,65 @@ class TestSentimentTrainerMethods:
         assert len(train_ds) == len(val_ds) == len(test_ds) == 5
         assert "labels" in train_ds.column_names
         assert "text" not in train_ds.column_names
+
+    @patch("transformers.AutoTokenizer.from_pretrained")
+    def test_train_orchestrates_components_and_returns_result(self, mock_tokenizer_cls):
+        from src.models.training import SentimentTrainer
+        from datasets import Dataset, DatasetDict
+
+        mock_tokenizer_cls.return_value = MagicMock()
+        trainer = SentimentTrainer("configs/training_config.yaml")
+
+        fake_split = Dataset.from_dict(
+            {
+                "input_ids": [[1, 2]] * 4,
+                "attention_mask": [[1, 1]] * 4,
+                "labels": [1] * 4,
+            }
+        )
+        trainer.load_dataset = MagicMock(
+            return_value=DatasetDict(
+                {"train": fake_split, "validation": fake_split, "test": fake_split}
+            )
+        )
+        trainer.prepare_dataset = MagicMock(
+            return_value=(fake_split, fake_split, fake_split)
+        )
+
+        mock_train_result = MagicMock()
+        mock_train_result.training_loss = 0.42
+
+        mock_hf_trainer = MagicMock()
+        mock_hf_trainer.train.return_value = mock_train_result
+        mock_hf_trainer.evaluate.return_value = {"eval_accuracy": 0.9, "eval_loss": 0.3}
+
+        mock_mlflow = MagicMock()
+        mock_run = MagicMock()
+        mock_run.info.run_id = "abc123"
+        mock_mlflow.start_run.return_value.__enter__.return_value = mock_run
+
+        with (
+            patch(
+                "src.models.training.AutoModelForSequenceClassification.from_pretrained"
+            ),
+            patch("src.models.training.TrainingArguments"),
+            patch("src.models.training.DataCollatorWithPadding"),
+            patch(
+                "src.models.training.Trainer", return_value=mock_hf_trainer
+            ) as mock_trainer_cls,
+            patch("src.models.training.mlflow", mock_mlflow),
+            patch("pathlib.Path.mkdir"),
+        ):
+            result = trainer.train()
+
+        assert result == {"train_loss": 0.42, "status": "completed"}
+        mock_hf_trainer.train.assert_called_once()
+
+        # Extract and verify the compute_metrics closure passed to Trainer
+        compute_metrics = mock_trainer_cls.call_args[1]["compute_metrics"]
+        logits = np.array([[0.1, 0.9], [0.8, 0.2]])
+        labels = np.array([1, 0])
+        assert compute_metrics((logits, labels)) == {"accuracy": 1.0}
 
 
 if __name__ == "__main__":
