@@ -214,4 +214,11 @@ trigger_test_inference = TriggerDagRunOperator(
     dag=dag,
 )
 
-validate_task >> download_task >> train_task >> evaluate_task >> log_complete >> trigger_test_inference
+(
+    validate_task
+    >> download_task
+    >> train_task
+    >> evaluate_task
+    >> log_complete
+    >> trigger_test_inference
+)
