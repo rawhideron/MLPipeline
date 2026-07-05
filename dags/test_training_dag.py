@@ -7,6 +7,7 @@ Steps:
   3. train_model           — fine-tunes distilbert for 1 epoch, saves to /models/trained_model
   4. evaluate_model        — runs accuracy check on a held-out slice
   5. log_complete          — prints a summary
+  6. trigger_test_inference — triggers mlpipeline_test_inference
 
 Run manually from the Airflow UI: DAGs → mlpipeline_test_training → Trigger DAG
 """
@@ -14,6 +15,7 @@ Run manually from the Airflow UI: DAGs → mlpipeline_test_training → Trigger 
 from datetime import datetime, timedelta
 
 from airflow import DAG
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from kubernetes.client import models as k8s
@@ -205,4 +207,11 @@ log_complete = PythonOperator(
     dag=dag,
 )
 
-validate_task >> download_task >> train_task >> evaluate_task >> log_complete
+trigger_test_inference = TriggerDagRunOperator(
+    task_id="trigger_test_inference",
+    trigger_dag_id="mlpipeline_test_inference",
+    wait_for_completion=False,
+    dag=dag,
+)
+
+validate_task >> download_task >> train_task >> evaluate_task >> log_complete >> trigger_test_inference
