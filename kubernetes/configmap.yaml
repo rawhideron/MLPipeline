@@ -16,7 +16,7 @@ data:
   AIRFLOW__CORE__LOG_LEVEL: "INFO"
   
   # Keycloak configuration
-  KEYCLOAK_REALM_URL: "https://keycloak:8080/realms/MLPipeline"
+  KEYCLOAK_REALM_URL: "https://goodmanreunion.duckdns.org/keycloak/realms/MLPipeline"
   OAUTH_CLIENT_ID: "mlpipeline-serving"
   
   # Logging configuration
