@@ -83,7 +83,7 @@ readinessProbe:
 # Environment variables
 env:
   - name: KEYCLOAK_REALM_URL
-    value: "https://keycloak:8080/realms/MLPipeline"
+    value: "https://goodmanreunion.duckdns.org/keycloak/realms/MLPipeline"
   - name: OAUTH_CLIENT_ID
     value: "mlpipeline-serving"
   - name: LOG_LEVEL
