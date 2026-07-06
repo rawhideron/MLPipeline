@@ -3,7 +3,7 @@ Test inference DAG — calls the live FastAPI serving endpoint with sample texts
 
 Steps:
   1. health_check    — confirms the serving API is reachable
-  2. run_inference   — POSTs sample texts to /predict and prints results
+  2. run_inference   — POSTs sample texts to /api/predict and prints results
   3. log_complete    — prints a summary
 
 Run manually from the Airflow UI: DAGs → mlpipeline_test_inference → Trigger DAG
@@ -17,8 +17,14 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
+from kubernetes.client import models as k8s
 
 SERVING_URL = os.environ.get("SERVING_URL", "https://mlpipeline.duckdns.org")
+KEYCLOAK_REALM_URL = os.environ.get(
+    "KEYCLOAK_REALM_URL",
+    "https://goodmanreunion.duckdns.org/keycloak/realms/MLPipeline",
+)
+OAUTH_CLIENT_ID = os.environ.get("OAUTH_CLIENT_ID", "mlpipeline-serving")
 
 default_args = {
     "owner": "mlpipeline",
@@ -58,14 +64,32 @@ def health_check():
         raise ValueError("Model is not loaded — run mlpipeline_test_training first")
 
 
+def _get_access_token():
+    import requests
+
+    resp = requests.post(
+        f"{KEYCLOAK_REALM_URL}/protocol/openid-connect/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": OAUTH_CLIENT_ID,
+            "client_secret": os.environ["OAUTH_CLIENT_SECRET"],
+        },
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()["access_token"]
+
+
 def run_inference():
     import requests
 
+    headers = {"Authorization": f"Bearer {_get_access_token()}"}
     results = []
     for text in SAMPLE_TEXTS:
         resp = requests.post(
-            f"{SERVING_URL}/predict",
+            f"{SERVING_URL}/api/predict",
             json={"text": text},
+            headers=headers,
             timeout=30,
         )
         if resp.status_code == 200:
@@ -90,6 +114,28 @@ health_task = PythonOperator(
 inference_task = PythonOperator(
     task_id="run_inference",
     python_callable=run_inference,
+    executor_config={
+        "pod_override": k8s.V1Pod(
+            spec=k8s.V1PodSpec(
+                containers=[
+                    k8s.V1Container(
+                        name="base",
+                        env=[
+                            k8s.V1EnvVar(
+                                name="OAUTH_CLIENT_SECRET",
+                                value_from=k8s.V1EnvVarSource(
+                                    secret_key_ref=k8s.V1SecretKeySelector(
+                                        name="keycloak-serving-secret",
+                                        key="client-secret",
+                                    )
+                                ),
+                            )
+                        ],
+                    )
+                ]
+            )
+        )
+    },
     dag=dag,
 )
 

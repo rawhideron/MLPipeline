@@ -25,6 +25,8 @@ data:
               value: /opt/airflow/dags/repo/dags
             - name: AIRFLOW__CORE__EXECUTION_API_SERVER_URL
               value: "http://airflow-webserver.{{ .Release.Namespace }}.svc.cluster.local:8080/airflow/execution/"
+            - name: AIRFLOW__LOGGING__BASE_LOG_FOLDER
+              value: {{ .Values.persistentVolume.logs.mountPath }}
             - name: AIRFLOW__API__SECRET_KEY
               valueFrom:
                 secretKeyRef:
@@ -40,7 +42,12 @@ data:
           volumeMounts:
             - name: dags
               mountPath: /opt/airflow/dags
+            - name: logs
+              mountPath: {{ .Values.persistentVolume.logs.mountPath }}
       volumes:
         - name: dags
           persistentVolumeClaim:
             claimName: {{ .Release.Name }}-dags
+        - name: logs
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-logs
