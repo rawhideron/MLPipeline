@@ -35,6 +35,8 @@ spec:
             - --oidc-groups-claim=groups
             - --insecure-oidc-skip-issuer-verification=true
             - --insecure-oidc-allow-unverified-email=true
+            - --skip-jwt-bearer-tokens=true
+            - --extra-jwt-issuers={{ .Values.oidc.externalIssuerUrl }}=account
           env:
             - name: OAUTH2_PROXY_CLIENT_SECRET
               valueFrom:
