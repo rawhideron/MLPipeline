@@ -36,7 +36,7 @@ spec:
             - --insecure-oidc-skip-issuer-verification=true
             - --insecure-oidc-allow-unverified-email=true
             - --skip-jwt-bearer-tokens=true
-            - --extra-jwt-issuers={{ .Values.oidc.externalIssuerUrl }}=account
+            - --oidc-extra-audience={{ .Values.oidc.extraAudience }}
           env:
             - name: OAUTH2_PROXY_CLIENT_SECRET
               valueFrom:
