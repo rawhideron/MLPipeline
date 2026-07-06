@@ -100,8 +100,8 @@ def run_inference():
             print(f"ERROR {resp.status_code}: {resp.text[:100]} | {text[:60]}")
 
     print(f"\nCompleted {len(results)}/{len(SAMPLE_TEXTS)} predictions")
-    pos = sum(1 for r in results if r["label"] == "POSITIVE")
-    neg = sum(1 for r in results if r["label"] == "NEGATIVE")
+    pos = sum(1 for r in results if r["label"] == "positive")
+    neg = sum(1 for r in results if r["label"] == "negative")
     print(f"POSITIVE: {pos}  NEGATIVE: {neg}")
 
 
