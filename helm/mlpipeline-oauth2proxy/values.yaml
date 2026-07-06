@@ -9,10 +9,10 @@ image:
 oidc:
   issuerUrl: "http://keycloak-keycloakx-http.keycloak.svc.cluster.local/keycloak/realms/MLPipeline"
   clientId: "oauth2-proxy"
-  # External issuer URL as it appears in the `iss` claim of tokens Keycloak issues
-  # (used to validate JWT bearer tokens from service accounts, e.g. Airflow's
-  # client-credentials calls to mlpipeline-serving)
-  externalIssuerUrl: "https://goodmanreunion.duckdns.org/keycloak/realms/MLPipeline"
+  # Additional accepted audience for JWT bearer tokens from service accounts
+  # (e.g. Airflow's client-credentials calls to mlpipeline-serving, whose
+  # tokens carry aud=account rather than aud=oauth2-proxy)
+  extraAudience: "account"
 
 # Credentials are read from the oauth2-proxy-secrets Kubernetes secret
 # Created manually: kubectl create secret generic oauth2-proxy-secrets
