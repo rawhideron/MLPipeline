@@ -1,6 +1,6 @@
 # Core ML/Data
-torch==2.8.0
-transformers==5.0.0rc3
+torch==2.12.0
+transformers==5.3.0
 pandas==2.1.4
 polars==0.19.19
 scikit-learn==1.5.0
@@ -10,10 +10,10 @@ numpy==1.24.3
 fastapi==0.109.0
 uvicorn==0.27.0
 pydantic==2.5.3
-python-multipart==0.0.27
+python-multipart==0.0.31
 
 # Orchestration
-apache-airflow==3.2.0
+apache-airflow==3.2.1rc1
 apache-airflow-providers-kubernetes==8.5.0
 apache-airflow-providers-postgres==5.10.0
 
@@ -24,7 +24,7 @@ SQLAlchemy==2.0.23
 # OAuth & Security
 python-keycloak==3.8.0
 authlib==1.6.12
-PyJWT==2.12.0
+PyJWT==2.13.0
 
 # Data Validation & Versioning
 great-expectations==0.18.13
@@ -32,7 +32,7 @@ dvc==3.48.4
 dvc-s3==3.2.0  # Optional for S3 backend
 
 # Experiment Tracking
-mlflow==2.16.2
+mlflow==3.11.1
 
 # Monitoring & Logging
 python-json-logger==2.0.7
