@@ -2,21 +2,28 @@
 Test inference DAG — calls the live FastAPI serving endpoint with sample texts.
 
 Steps:
-  1. health_check    — confirms the serving API is reachable
-  2. run_inference   — POSTs sample texts to /api/predict and prints results
-  3. log_complete    — prints a summary
+  1. wait_for_test_training — blocks until the latest mlpipeline_test_training run succeeded
+  2. health_check           — confirms the serving API is reachable
+  3. run_inference          — POSTs sample texts to /api/predict and prints results
+  4. log_complete           — prints a summary
 
 Run manually from the Airflow UI: DAGs → mlpipeline_test_inference → Trigger DAG
 
-Requires the serving pod to be running and the model to be loaded
-(run mlpipeline_test_training first if model_loaded is false).
+Requires the serving pod to be running and the model to be loaded. wait_for_test_training
+enforces this by polling the latest mlpipeline_test_training DAG run's state rather than
+matching on logical date, since both DAGs are schedule=None / manually triggered and their
+logical dates won't otherwise line up.
 """
 
 import os
 from datetime import datetime, timedelta
 
 from airflow import DAG
+from airflow.exceptions import AirflowException
+from airflow.models import DagRun
 from airflow.providers.standard.operators.python import PythonOperator
+from airflow.providers.standard.sensors.python import PythonSensor
+from airflow.utils.state import DagRunState
 from kubernetes.client import models as k8s
 
 SERVING_URL = os.environ.get("SERVING_URL", "https://mlpipeline.duckdns.org")
@@ -49,6 +56,21 @@ SAMPLE_TEXTS = [
     "One of the best films I have seen in years.",
     "I fell asleep halfway through, very boring.",
 ]
+
+
+def check_training_succeeded():
+    runs = DagRun.find(dag_id="mlpipeline_test_training")
+    if not runs:
+        return False  # no run yet — keep waiting
+
+    latest = max(runs, key=lambda r: r.execution_date)
+    if latest.state == DagRunState.SUCCESS:
+        return True
+    if latest.state == DagRunState.FAILED:
+        raise AirflowException(
+            f"Latest mlpipeline_test_training run ({latest.run_id}) failed"
+        )
+    return False  # still queued/running — keep waiting
 
 
 def health_check():
@@ -105,6 +127,15 @@ def run_inference():
     print(f"POSITIVE: {pos}  NEGATIVE: {neg}")
 
 
+wait_for_training = PythonSensor(
+    task_id="wait_for_test_training",
+    python_callable=check_training_succeeded,
+    poke_interval=30,
+    timeout=1800,
+    mode="reschedule",
+    dag=dag,
+)
+
 health_task = PythonOperator(
     task_id="health_check",
     python_callable=health_check,
@@ -145,4 +176,4 @@ log_complete = PythonOperator(
     dag=dag,
 )
 
-health_task >> inference_task >> log_complete
+wait_for_training >> health_task >> inference_task >> log_complete
