@@ -3,13 +3,12 @@ name: CI
 on:
   pull_request:
     branches: [main, dev]
-  push:
-    branches: [main, dev]
 
 jobs:
   test:
     name: Test & Coverage
     runs-on: ubuntu-latest
+    if: github.event.pull_request.base.ref == 'dev'
 
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +44,7 @@ jobs:
     name: SonarQube Analysis
     runs-on: ubuntu-latest
     needs: test
-    if: github.actor != 'dependabot[bot]'
+    if: github.event.pull_request.base.ref == 'dev' && github.actor != 'dependabot[bot]'
 
     steps:
       - uses: actions/checkout@v4
