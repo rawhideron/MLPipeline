@@ -68,7 +68,7 @@ When investigating or changing any Airflow configuration, consult the official d
 
 Two workflows run automatically:
 
-- **CI** (`.github/workflows/ci.yml`) — triggers on every PR and push to `main`/`dev`: runs `pytest` with coverage, SonarCloud scan, and `ruff` lint/format check.
+- **CI** (`.github/workflows/ci.yml`) — triggers on every PR targeting `main` or `dev`. `pytest` with coverage and the SonarCloud scan only run on PRs targeting `dev` (feature/fix → dev); the `dev` → `main` promotion PR only runs DAG validation and `ruff` lint/format check, since that code was already tested on `dev`.
 - **CD** (`.github/workflows/cd.yml`) — triggers on merge to `main`: calls `argocd app sync` for the manifests app and all three Helm component apps in wave order (postgres → airflow → serving).
 
 **Required GitHub Secrets:**
