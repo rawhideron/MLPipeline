@@ -60,12 +60,15 @@ a weekly schedule catches revisions without being excessive.
 - **New PVC** (e.g. `mlpipeline-etl-data`) — shared scratch volume mounted into all
   three task pods, playing the same role as `mlpipeline-serving-models` does for the
   training DAG's model artifact.
-- **New Postgres database** on the existing `mlpipeline-postgresql` instance (the
-  same StatefulSet that currently hosts Airflow's metadata DB) — a separate database
-  (e.g. `gdp_data`) rather than a new schema in the existing `mlpipeline` database or
-  a whole new Postgres instance. Needs its own credentials Secret, following the
-  pattern of `kubernetes/postgres-secret.yaml`'s existing `postgres-credentials`
-  Secret.
+- **Existing `mlpipeline-postgres` Postgres instance** (the standalone
+  `helm/mlpipeline-postgres` chart/StatefulSet — confirmed live in the cluster but
+  currently unused by any application; this is distinct from the separate Postgres
+  StatefulSet embedded in `helm/mlpipeline-airflow` that hosts Airflow's own metadata
+  DB). The `gdp` table is created in this instance's existing `mlpipeline` database.
+  No new database, initdb script, or Secret is needed — the load step reuses the
+  existing `mlpipeline-postgres-credentials` Secret (`POSTGRES_USER`,
+  `POSTGRES_PASSWORD`, `POSTGRES_DB`, all `mlpipeline`) that the
+  `helm/mlpipeline-postgres` chart already creates.
 - **New Secret** holding the BEA API `UserID` key, mounted as an env var into the
   `extract_gdp_data` pod.
 
