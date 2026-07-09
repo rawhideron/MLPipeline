@@ -29,10 +29,10 @@ dag = DAG(
     tags=["etl", "gdp", "postgres"],
 )
 
-# git-sync mounts the repo under the dags PVC: /opt/airflow/dags/repo/
 NAMESPACE = "mlpipeline"
-REPO_PATH = "/opt/airflow/dags/repo"
-CONFIG_PATH = f"{REPO_PATH}/configs/etl_config.yaml"
+# etl/Dockerfile bakes configs/ into the image at /app/configs/ -- this path
+# is inside the mlpipeline-etl container, not the git-synced dags repo.
+CONFIG_PATH = "/app/configs/etl_config.yaml"
 
 ETL_IMAGE = "mlpipeline-etl:1.0.0"
 ETL_DATA_PVC = "mlpipeline-etl-data"
