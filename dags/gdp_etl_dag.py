@@ -93,7 +93,7 @@ load_task = KubernetesPodOperator(
     image_pull_policy="IfNotPresent",
     cmds=["python"],
     arguments=["/app/src/etl/load.py", CONFIG_PATH],
-    env=[k8s.V1EnvVar(name="POSTGRES_HOST", value="mlpipeline-postgres")],
+    env_vars=[k8s.V1EnvVar(name="POSTGRES_HOST", value="mlpipeline-postgres")],
     env_from=[
         k8s.V1EnvFromSource(
             secret_ref=k8s.V1SecretEnvSource(name="mlpipeline-postgres-credentials")
