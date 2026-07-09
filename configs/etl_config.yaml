@@ -1,0 +1,12 @@
+bea:
+  dataset_name: "NIPA"
+  table_name: "T10101"
+  frequency: "Q"
+  year: "X"  # "X" requests all available years, per the BEA API convention
+
+output:
+  raw_data_path: "/data/etl/raw_gdp.json"
+  transformed_data_path: "/data/etl/gdp_tidy.csv"
+
+database:
+  table_name: "gdp"
