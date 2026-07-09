@@ -35,3 +35,45 @@ class TestExtract:
         save_raw_data({"a": 1}, str(output_path))
 
         assert json.loads(output_path.read_text()) == {"a": 1}
+
+
+class TestTransform:
+    def test_parse_nipa_response_produces_tidy_dataframe(self):
+        from src.etl.transform import parse_nipa_response
+
+        raw = {
+            "BEAAPI": {
+                "Results": {
+                    "Data": [
+                        {
+                            "TableName": "T10101",
+                            "SeriesCode": "A191RL",
+                            "LineDescription": "Gross domestic product",
+                            "TimePeriod": "2023Q1",
+                            "DataValue": "3.2",
+                        },
+                        {
+                            "TableName": "T10101",
+                            "SeriesCode": "A191RL",
+                            "LineDescription": "Gross domestic product",
+                            "TimePeriod": "2023Q2",
+                            "DataValue": "1,234.5",
+                        },
+                    ]
+                }
+            }
+        }
+
+        df = parse_nipa_response(raw)
+
+        assert list(df.columns) == [
+            "period",
+            "series_code",
+            "series_name",
+            "table_name",
+            "value",
+        ]
+        assert len(df) == 2
+        assert df.iloc[0]["period"] == "2023Q1"
+        assert df.iloc[0]["value"] == 3.2
+        assert df.iloc[1]["value"] == 1234.5  # comma thousands separator stripped
