@@ -52,7 +52,13 @@ def upsert_gdp_data(conn, df: pd.DataFrame, table: str) -> None:
         for row in df.itertuples(index=False):
             cur.execute(
                 UPSERT_SQL.format(table=table),
-                (row.period, row.series_code, row.series_name, row.table_name, row.value),
+                (
+                    row.period,
+                    row.series_code,
+                    row.series_name,
+                    row.table_name,
+                    row.value,
+                ),
             )
     conn.commit()
 
