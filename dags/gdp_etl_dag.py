@@ -23,7 +23,7 @@ dag = DAG(
     "gdp_etl",
     default_args=default_args,
     description="Extract, transform, and load GDP data from the BEA API into Postgres",
-    schedule="@weekly",
+    schedule="0 11 * * 1",  # every Monday at 11:00
     start_date=datetime(2026, 1, 1),
     catchup=False,
     tags=["etl", "gdp", "postgres"],
