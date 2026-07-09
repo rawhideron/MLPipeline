@@ -77,3 +77,45 @@ class TestTransform:
         assert df.iloc[0]["period"] == "2023Q1"
         assert df.iloc[0]["value"] == 3.2
         assert df.iloc[1]["value"] == 1234.5  # comma thousands separator stripped
+
+
+class TestLoad:
+    def test_ensure_table_executes_create_table(self):
+        from src.etl.load import ensure_table
+
+        conn = MagicMock()
+        cursor = MagicMock()
+        conn.cursor.return_value.__enter__.return_value = cursor
+
+        ensure_table(conn, "gdp")
+
+        cursor.execute.assert_called_once()
+        assert "CREATE TABLE IF NOT EXISTS gdp" in cursor.execute.call_args[0][0]
+        conn.commit.assert_called_once()
+
+    def test_upsert_gdp_data_executes_one_upsert_per_row(self):
+        from src.etl.load import upsert_gdp_data
+
+        conn = MagicMock()
+        cursor = MagicMock()
+        conn.cursor.return_value.__enter__.return_value = cursor
+
+        df = pd.DataFrame(
+            [
+                {
+                    "period": "2023Q1",
+                    "series_code": "A191RL",
+                    "series_name": "Gross domestic product",
+                    "table_name": "T10101",
+                    "value": 3.2,
+                }
+            ]
+        )
+
+        upsert_gdp_data(conn, df, "gdp")
+
+        assert cursor.execute.call_count == 1
+        sql, params = cursor.execute.call_args[0]
+        assert "ON CONFLICT (period, series_code)" in sql
+        assert params == ("2023Q1", "A191RL", "Gross domestic product", "T10101", 3.2)
+        conn.commit.assert_called_once()
