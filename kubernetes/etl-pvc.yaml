@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mlpipeline-etl-data
+  namespace: mlpipeline
+  labels:
+    app.kubernetes.io/name: mlpipeline
+    app.kubernetes.io/component: etl
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 1Gi
