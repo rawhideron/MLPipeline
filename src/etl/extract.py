@@ -24,7 +24,15 @@ def fetch_nipa_data(user_id: str, table_name: str, frequency: str, year: str) ->
     }
     response = requests.get(BEA_API_URL, params=params, timeout=30)
     response.raise_for_status()
-    return response.json()
+    data = response.json()
+
+    results = data.get("BEAAPI", {}).get("Results", {})
+    if "Error" in results:
+        raise RuntimeError(f"BEA API returned an error: {results['Error']}")
+    if "Data" not in results:
+        raise RuntimeError(f"BEA API response missing expected 'Data' field: {data}")
+
+    return data
 
 
 def save_raw_data(data: dict, output_path: str) -> None:

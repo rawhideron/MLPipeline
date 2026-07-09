@@ -4,6 +4,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytest
 
 
 class TestExtract:
@@ -27,6 +28,23 @@ class TestExtract:
         assert kwargs["params"]["Frequency"] == "Q"
         assert kwargs["params"]["Year"] == "X"
         assert result == {"BEAAPI": {"Results": {"Data": []}}}
+
+    @patch("requests.get")
+    def test_fetch_nipa_data_raises_on_bea_error_envelope(self, mock_get):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "BEAAPI": {
+                "Results": {"Error": {"APIErrorDescription": "Invalid API UserID"}}
+            }
+        }
+        mock_get.return_value = mock_response
+
+        from src.etl.extract import fetch_nipa_data
+
+        with pytest.raises(RuntimeError, match="Invalid API UserID"):
+            fetch_nipa_data(
+                user_id="bad-key", table_name="T10101", frequency="Q", year="X"
+            )
 
     def test_save_raw_data_writes_json(self, tmp_path):
         from src.etl.extract import save_raw_data
