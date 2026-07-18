@@ -132,7 +132,10 @@ MLPipeline/
 │   └── utils/                 # Helper functions
 ├── dags/                       # Airflow DAGs
 │   ├── training_dag.py        # Training pipeline orchestration
-│   └── inference_dag.py       # Inference pipeline
+│   ├── inference_dag.py       # Inference pipeline
+│   ├── test_training_dag.py   # Quick training test on a 200-sample IMDB slice
+│   ├── test_inference_dag.py  # Test inference against the live serving endpoint
+│   └── gdp_etl_dag.py         # GDP (BEA NIPA) ETL pipeline
 ├── serving/                    # FastAPI application
 │   ├── app.py                 # Main FastAPI app
 │   ├── oauth_middleware.py    # Keycloak OAuth integration
@@ -164,7 +167,8 @@ MLPipeline/
 │   ├── test_models.py         # Model tests
 │   └── test_api.py            # API endpoint tests
 ├── notebooks/                  # Jupyter notebooks
-│   └── exploration.ipynb      # Example walkthrough
+│   ├── exploration.ipynb      # Example walkthrough
+│   └── gdp_etl_preview.ipynb  # In-process preview of the gdp_etl DAG's extract/transform/load steps
 ├── requirements.txt            # Python dependencies
 ├── .gitignore                 # Git ignore rules
 ├── README.md                  # This file
@@ -286,12 +290,13 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed steps:
 
 DAG files live in the [`dags/`](dags/) directory. Merge a `.py` file there to `main` and git-sync delivers it to Airflow within ~60 seconds — no manual steps required.
 
-| DAG                        | Schedule | Purpose                                                    |
-| -------------------------- | -------- | ---------------------------------------------------------- |
-| `mlpipeline_test_training` | Manual   | Fine-tunes DistilBERT on 200 IMDB samples — run this first |
-| `mlpipeline_test_inference`| Manual   | Calls the live FastAPI endpoint with sample texts          |
-| `mlpipeline_training`      | Weekly   | Full production training pipeline                          |
-| `mlpipeline_inference`     | Daily    | Production batch inference                                 |
+| DAG                         | Schedule           | Purpose                                                                              |
+| --------------------------- | ------------------ | ------------------------------------------------------------------------------------ |
+| `mlpipeline_test_training`  | Manual             | Fine-tunes DistilBERT on 200 IMDB samples — run this first                           |
+| `mlpipeline_test_inference` | Manual             | Calls the live FastAPI endpoint with sample texts                                    |
+| `mlpipeline_training`       | Weekly             | Full production training pipeline                                                    |
+| `mlpipeline_inference`      | Daily              | Production batch inference                                                           |
+| `gdp_etl`                   | Weekly (Mon 11:00) | Extracts GDP (NIPA) data from the BEA API, transforms it, and loads it into Postgres |
 
 New DAGs are **paused by default** — toggle them on in the Airflow UI before triggering.
 
