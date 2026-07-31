@@ -2,12 +2,12 @@
 
 import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 
 import yaml
 
 
-def load_config(config_path: str) -> Dict[str, Any]:
+def load_config(config_path: str) -> dict[str, Any]:
     """
     Load YAML configuration file.
 
@@ -26,7 +26,7 @@ def load_config(config_path: str) -> Dict[str, Any]:
     return config
 
 
-def get_model_path(config: Dict) -> str:
+def get_model_path(config: dict) -> str:
     """Get model path from configuration."""
     return config["output"]["model_path"]
 

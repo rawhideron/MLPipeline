@@ -3,18 +3,17 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict
 
+import numpy as np
 import torch
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from sklearn.metrics import (
     accuracy_score,
+    confusion_matrix,
+    f1_score,
     precision_score,
     recall_score,
-    f1_score,
-    confusion_matrix,
 )
-import numpy as np
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +37,7 @@ class ModelEvaluator:
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
         self.model.eval()
 
-    def predict_batch(self, texts: list) -> Dict:
+    def predict_batch(self, texts: list) -> dict:
         """
         Get predictions for a batch of texts.
 
@@ -65,7 +64,7 @@ class ModelEvaluator:
             "logits": logits.cpu().numpy(),
         }
 
-    def evaluate(self, test_dataset) -> Dict:
+    def evaluate(self, test_dataset) -> dict:
         """
         Evaluate model on test dataset.
 
@@ -104,7 +103,7 @@ class ModelEvaluator:
         logger.info(f"Evaluation metrics: {metrics}")
         return metrics
 
-    def save_metrics(self, metrics: Dict, output_path: str):
+    def save_metrics(self, metrics: dict, output_path: str):
         """Save evaluation metrics to file."""
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -117,6 +116,7 @@ class ModelEvaluator:
 
 if __name__ == "__main__":
     import sys
+
     from datasets import load_dataset
 
     logging.basicConfig(level=logging.INFO)

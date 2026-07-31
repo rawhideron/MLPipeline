@@ -6,7 +6,7 @@ format with pandas, and loads it into the mlpipeline-postgres database.
 Independent of the sentiment training/inference pipeline.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from airflow import DAG
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
@@ -24,7 +24,7 @@ dag = DAG(
     default_args=default_args,
     description="Extract, transform, and load GDP data from the BEA API into Postgres",
     schedule="0 11 * * 1",  # every Monday at 11:00
-    start_date=datetime(2026, 1, 1),
+    start_date=datetime(2026, 1, 1, tzinfo=timezone.utc),
     catchup=False,
     tags=["etl", "gdp", "postgres"],
 )

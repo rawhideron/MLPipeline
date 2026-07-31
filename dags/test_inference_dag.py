@@ -16,7 +16,7 @@ logical dates won't otherwise line up.
 """
 
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from airflow import DAG
 from airflow.exceptions import AirflowException
@@ -44,7 +44,7 @@ dag = DAG(
     default_args=default_args,
     description="Test inference by calling the live FastAPI serving endpoint",
     schedule=None,  # manual trigger only
-    start_date=datetime(2026, 1, 1),
+    start_date=datetime(2026, 1, 1, tzinfo=timezone.utc),
     catchup=False,
     tags=["test", "inference"],
 )

@@ -10,14 +10,14 @@ This DAG orchestrates the following steps:
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
+import yaml
 from airflow import DAG
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
 from airflow.providers.standard.operators.python import PythonOperator
 from kubernetes.client import models as k8s
-import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ dag = DAG(
     default_args=default_args,
     description="End-to-end NLP model training pipeline",
     schedule="@weekly",
-    start_date=datetime(2026, 1, 1),
+    start_date=datetime(2026, 1, 1, tzinfo=timezone.utc),
     catchup=False,
     tags=["ml", "training", "nlp"],
 )

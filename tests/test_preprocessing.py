@@ -1,11 +1,12 @@
 """Unit tests for text preprocessing module."""
 
 import pytest
+
 from src.preprocessing.text_cleaning import (
     clean_text,
-    tokenize_simple,
-    remove_stopwords,
     preprocess_batch,
+    remove_stopwords,
+    tokenize_simple,
 )
 
 

@@ -1,11 +1,11 @@
 """Unit tests for model training and inference."""
 
 import json
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 import torch
-from unittest.mock import patch, MagicMock
 
 
 class TestModelTraining:
@@ -64,7 +64,7 @@ class TestModelTraining:
         ) as mock_load:
             try:
                 trainer.load_dataset()
-            except Exception:
+            except Exception:  # noqa: BLE001, S110 -- only the call args matter, mocks don't complete the pipeline
                 pass
             # load_dataset must be called with the config value, not a hardcoded string
             mock_load.assert_called_once_with(dataset_name)
@@ -255,8 +255,9 @@ class TestSentimentTrainerMethods:
 
     @patch("transformers.AutoTokenizer.from_pretrained")
     def test_load_dataset_splits_into_three_splits(self, mock_tokenizer_cls):
-        from src.models.training import SentimentTrainer
         from datasets import Dataset, DatasetDict
+
+        from src.models.training import SentimentTrainer
 
         mock_tokenizer_cls.return_value = MagicMock()
         trainer = SentimentTrainer("configs/training_config.yaml")
@@ -294,8 +295,9 @@ class TestSentimentTrainerMethods:
 
     @patch("transformers.AutoTokenizer.from_pretrained")
     def test_prepare_dataset_returns_tokenized_splits(self, mock_tokenizer_cls):
-        from src.models.training import SentimentTrainer
         from datasets import Dataset, DatasetDict
+
+        from src.models.training import SentimentTrainer
 
         def fake_tokenize(texts, max_length, truncation):
             return {
@@ -323,8 +325,9 @@ class TestSentimentTrainerMethods:
 
     @patch("transformers.AutoTokenizer.from_pretrained")
     def test_train_orchestrates_components_and_returns_result(self, mock_tokenizer_cls):
-        from src.models.training import SentimentTrainer
         from datasets import Dataset, DatasetDict
+
+        from src.models.training import SentimentTrainer
 
         mock_tokenizer_cls.return_value = MagicMock()
         trainer = SentimentTrainer("configs/training_config.yaml")

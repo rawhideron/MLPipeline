@@ -12,12 +12,12 @@ Steps:
 Run manually from the Airflow UI: DAGs → mlpipeline_test_training → Trigger DAG
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from airflow import DAG
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
-from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
+from airflow.providers.standard.operators.python import PythonOperator
 from kubernetes.client import models as k8s
 
 NAMESPACE = "mlpipeline"
@@ -34,7 +34,7 @@ dag = DAG(
     default_args=default_args,
     description="Quick training test — 1 epoch on 200 IMDB samples",
     schedule=None,  # manual trigger only
-    start_date=datetime(2026, 1, 1),
+    start_date=datetime(2026, 1, 1, tzinfo=timezone.utc),
     catchup=False,
     tags=["test", "training"],
 )
@@ -46,9 +46,11 @@ validate_task = KubernetesPodOperator(
     image_pull_policy="IfNotPresent",
     cmds=["python", "-c"],
     arguments=[
-        "import torch, transformers, datasets; "
-        "print(f'torch={torch.__version__} transformers={transformers.__version__}'); "
-        "print('Environment OK')"
+        (
+            "import torch, transformers, datasets; "
+            "print(f'torch={torch.__version__} transformers={transformers.__version__}'); "
+            "print('Environment OK')"
+        )
     ],
     name="validate-env",
     in_cluster=True,

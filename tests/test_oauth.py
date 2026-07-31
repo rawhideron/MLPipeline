@@ -211,9 +211,11 @@ class TestVerifyToken:
 
         oauth = self._make_oauth_with_key()
 
-        with patch("jwt.decode", side_effect=pyjwt.ExpiredSignatureError):
-            with pytest.raises(HTTPException) as exc_info:
-                oauth.verify_token("expired.token")
+        with (
+            patch("jwt.decode", side_effect=pyjwt.ExpiredSignatureError),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            oauth.verify_token("expired.token")
 
         assert exc_info.value.status_code == 401
         assert "expired" in exc_info.value.detail.lower()
@@ -224,9 +226,11 @@ class TestVerifyToken:
 
         oauth = self._make_oauth_with_key()
 
-        with patch("jwt.decode", side_effect=pyjwt.InvalidTokenError("bad sig")):
-            with pytest.raises(HTTPException) as exc_info:
-                oauth.verify_token("invalid.token")
+        with (
+            patch("jwt.decode", side_effect=pyjwt.InvalidTokenError("bad sig")),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            oauth.verify_token("invalid.token")
 
         assert exc_info.value.status_code == 401
 
@@ -235,9 +239,11 @@ class TestVerifyToken:
 
         oauth = self._make_oauth_with_key()
 
-        with patch("jwt.decode", side_effect=RuntimeError("unexpected")):
-            with pytest.raises(HTTPException) as exc_info:
-                oauth.verify_token("some.token")
+        with (
+            patch("jwt.decode", side_effect=RuntimeError("unexpected")),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            oauth.verify_token("some.token")
 
         assert exc_info.value.status_code == 401
 
