@@ -65,7 +65,7 @@ download_task = KubernetesPodOperator(
     arguments=[
         """
 from datasets import load_dataset
-ds = load_dataset("imdb", split="train[:200]")
+ds = load_dataset("stanfordnlp/imdb", split="train[:200]")
 ds.save_to_disk("/models/test_data")
 print(f"Downloaded {len(ds)} samples to /models/test_data")
 """
