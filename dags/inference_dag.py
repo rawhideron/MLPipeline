@@ -5,11 +5,11 @@ This DAG runs inference on new data using the trained model.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from airflow import DAG
-from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
+from airflow.providers.standard.operators.python import PythonOperator
 from kubernetes.client import models as k8s
 
 default_args = {
@@ -23,7 +23,7 @@ dag = DAG(
     default_args=default_args,
     description="Batch inference pipeline for sentiment classification",
     schedule="@daily",
-    start_date=datetime(2026, 1, 1),
+    start_date=datetime(2026, 1, 1, tzinfo=timezone.utc),
     catchup=False,
     tags=["ml", "inference", "nlp"],
 )

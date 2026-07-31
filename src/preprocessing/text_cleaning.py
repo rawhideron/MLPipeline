@@ -2,7 +2,6 @@
 
 import re
 import string
-from typing import List
 
 
 def clean_text(text: str, lowercase: bool = True, remove_special: bool = True) -> str:
@@ -39,7 +38,7 @@ def clean_text(text: str, lowercase: bool = True, remove_special: bool = True) -
     return text
 
 
-def tokenize_simple(text: str) -> List[str]:
+def tokenize_simple(text: str) -> list[str]:
     """
     Simple whitespace tokenization.
 
@@ -52,7 +51,7 @@ def tokenize_simple(text: str) -> List[str]:
     return text.split()
 
 
-def remove_stopwords(tokens: List[str], language: str = "english") -> List[str]:
+def remove_stopwords(tokens: list[str], language: str = "english") -> list[str]:
     """
     Remove common stopwords.
 
@@ -73,8 +72,8 @@ def remove_stopwords(tokens: List[str], language: str = "english") -> List[str]:
 
 
 def preprocess_batch(
-    texts: List[str], clean: bool = True, remove_stops: bool = False
-) -> List[str]:
+    texts: list[str], clean: bool = True, remove_stops: bool = False
+) -> list[str]:
     """
     Preprocess a batch of texts.
 

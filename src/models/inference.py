@@ -1,7 +1,6 @@
 """Model inference utilities."""
 
 import logging
-from typing import List, Dict
 
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
@@ -31,7 +30,7 @@ class SentimentPredictor:
 
         self.labels = {0: "negative", 1: "positive"}
 
-    def predict(self, text: str) -> Dict:
+    def predict(self, text: str) -> dict:
         """
         Predict sentiment for a single text.
 
@@ -63,7 +62,7 @@ class SentimentPredictor:
             },
         }
 
-    def predict_batch(self, texts: List[str]) -> List[Dict]:
+    def predict_batch(self, texts: list[str]) -> list[dict]:
         """
         Predict sentiment for multiple texts in a single forward pass.
 

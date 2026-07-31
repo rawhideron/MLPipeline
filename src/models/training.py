@@ -4,7 +4,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -12,15 +12,16 @@ import mlflow
 import numpy as np
 import torch
 import yaml
+from datasets import DatasetDict, load_dataset
 from sklearn.metrics import accuracy_score
 from transformers import (
-    AutoTokenizer,
     AutoModelForSequenceClassification,
+    AutoTokenizer,
+    DataCollatorWithPadding,
     Trainer,
     TrainingArguments,
-    DataCollatorWithPadding,
 )
-from datasets import load_dataset, DatasetDict
+
 from src.preprocessing.text_cleaning import preprocess_batch
 
 logger = logging.getLogger(__name__)
@@ -84,7 +85,7 @@ class SentimentTrainer:
             truncation=True,
         )
 
-    def prepare_dataset(self, dataset: DatasetDict) -> Tuple[Any, Any, Any]:
+    def prepare_dataset(self, dataset: DatasetDict) -> tuple[Any, Any, Any]:
         """
         Tokenize and prepare dataset.
 
@@ -107,7 +108,7 @@ class SentimentTrainer:
 
         return (tokenized["train"], tokenized["validation"], tokenized["test"])
 
-    def train(self) -> Dict:
+    def train(self) -> dict:
         """
         Train the model.
 
