@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import mlflow
 import numpy as np
 import torch
+import transformers
 import yaml
 from datasets import DatasetDict, load_dataset
 from sklearn.metrics import accuracy_score
@@ -214,10 +215,29 @@ class SentimentTrainer:
 
             trainer.save_model(output_dir)
             self.tokenizer.save_pretrained(output_dir)
-            mlflow.log_artifacts(output_dir, artifact_path="model")
 
-            model_uri = f"runs:/{run.info.run_id}/model"
-            mlflow.register_model(model_uri, "mlpipeline-sentiment")
+            # mlflow.log_artifacts + mlflow.register_model(f"runs:/{run_id}/model", ...) doesn't
+            # work on MLflow 3.x: register_model now requires a LoggedModel entity for runs:/
+            # URIs, which plain artifact upload doesn't create. log_model creates that entity
+            # and registers it in one step.
+            #
+            # task must be explicit: without it, mlflow infers the pipeline task from the base
+            # checkpoint's Hub tag (distilbert-base-uncased -> "fill-mask"), not our fine-tuned
+            # classification head.
+            #
+            # pip_requirements must be explicit too: mlflow's own default-requirements inference
+            # unconditionally appends "torchvision" for any torch-based model, even a text-only
+            # one, and crashes with ModuleNotFoundError if it isn't installed.
+            mlflow.transformers.log_model(
+                transformers_model={"model": model, "tokenizer": self.tokenizer},
+                name="model",
+                task="text-classification",
+                registered_model_name="mlpipeline-sentiment",
+                pip_requirements=[
+                    f"transformers=={transformers.__version__}",
+                    f"torch=={torch.__version__.split('+')[0]}",
+                ],
+            )
             logger.info("Model saved and registered (run_id=%s)", run.info.run_id)
 
         return {"train_loss": train_result.training_loss, "status": "completed"}
