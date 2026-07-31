@@ -21,6 +21,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
+from transformers.utils.notebook import NotebookProgressCallback
 
 from src.preprocessing.text_cleaning import preprocess_batch
 
@@ -193,6 +194,9 @@ class SentimentTrainer:
             logger.info("Starting training...")
             train_result = trainer.train()
 
+            # NotebookProgressCallback tears down its progress tracker in on_train_end,
+            # so a post-train evaluate() call raises in notebook environments (e.g. Colab)
+            trainer.remove_callback(NotebookProgressCallback)
             eval_metrics = trainer.evaluate()
             mlflow.log_metric("train_loss", train_result.training_loss)
             mlflow.log_metrics(
