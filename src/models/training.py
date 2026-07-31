@@ -146,7 +146,9 @@ class SentimentTrainer:
             learning_rate=self.config["training"]["learning_rate"],
             weight_decay=self.config["training"]["weight_decay"],
             warmup_steps=self.config["training"]["warmup_steps"],
-            gradient_checkpointing=True,
+            # No memory pressure at this batch size (distilbert, seq_len=128, batch=8),
+            # so checkpointing would only add ~20-30% recompute overhead for no benefit.
+            gradient_checkpointing=False,
             logging_steps=100,
             save_steps=500,
             eval_strategy="epoch",
