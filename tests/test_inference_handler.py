@@ -1,7 +1,8 @@
 """Unit tests for InferenceHandler."""
 
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 def _make_model_config(model_name="distilbert-base-uncased", num_labels=2):

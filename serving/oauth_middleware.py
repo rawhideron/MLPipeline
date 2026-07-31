@@ -2,13 +2,12 @@
 
 import json
 import logging
-from typing import Dict
 import os
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import jwt
 import httpx
+import jwt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 logger = logging.getLogger(__name__)
 
@@ -20,9 +19,9 @@ class KeycloakOAuth:
 
     def __init__(
         self,
-        realm_url: str = None,
-        client_id: str = None,
-        client_secret: str = None,
+        realm_url: str | None = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
     ):
         """
         Initialize Keycloak OAuth client.
@@ -46,7 +45,7 @@ class KeycloakOAuth:
         self.public_key = None
         self._fetch_public_key()
 
-    def _fetch_public_key(self, kid: str = None):
+    def _fetch_public_key(self, kid: str | None = None):
         """Fetch and cache Keycloak public key, matching by kid when provided."""
         try:
             with httpx.Client() as client:
@@ -69,10 +68,10 @@ class KeycloakOAuth:
                     "Successfully fetched Keycloak public key (kid=%s)",
                     key_data.get("kid"),
                 )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 -- log and continue with no cached key
             logger.error("Failed to fetch Keycloak public key: %s", e)
 
-    def verify_token(self, token: str) -> Dict:
+    def verify_token(self, token: str) -> dict:
         """
         Verify and decode JWT token from Keycloak.
 
@@ -113,7 +112,7 @@ class KeycloakOAuth:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 -- any other verification failure is unauthorized
             logger.error("Token verification error: %s", e)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
@@ -125,8 +124,8 @@ keycloak_oauth = KeycloakOAuth()
 
 
 def verify_token(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> Dict:
+    credentials: HTTPAuthorizationCredentials = Depends(security),  # noqa: B008 -- required FastAPI DI pattern
+) -> dict:
     """
     Dependency for FastAPI endpoints requiring authentication.
 

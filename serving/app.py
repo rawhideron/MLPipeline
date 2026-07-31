@@ -2,15 +2,14 @@
 
 import logging
 import os
+from typing import Annotated
 
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel, field_validator
-from typing import Annotated, Dict, List
-
-from oauth_middleware import verify_token
 from inference_handler import InferenceHandler
+from oauth_middleware import verify_token
+from pydantic import BaseModel, field_validator
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -77,7 +76,7 @@ class PredictionResponse(BaseModel):
 
     label: str
     confidence: float
-    probabilities: Dict[str, float]
+    probabilities: dict[str, float]
 
 
 class HealthResponse(BaseModel):
@@ -115,7 +114,7 @@ async def predict(request: PredictionRequest, token: TokenDep):
             confidence=result["confidence"],
             probabilities=result["probabilities"],
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 -- convert any prediction failure to a 500
         logger.error("Prediction error: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -126,11 +125,11 @@ async def predict(request: PredictionRequest, token: TokenDep):
 class BatchPredictionRequest(BaseModel):
     """Request model for batch prediction."""
 
-    texts: List[str]
+    texts: list[str]
 
     @field_validator("texts")
     @classmethod
-    def texts_must_be_non_empty(cls, v: List[str]) -> List[str]:
+    def texts_must_be_non_empty(cls, v: list[str]) -> list[str]:
         if not v:
             raise ValueError("texts list must not be empty")
         if len(v) > 100:
@@ -149,7 +148,7 @@ async def predict_batch(request: BatchPredictionRequest, token: TokenDep):
     try:
         results = inference_handler.predict_batch(request.texts)
         return {"predictions": results}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 -- convert any batch prediction failure to a 500
         logger.error("Batch prediction error: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

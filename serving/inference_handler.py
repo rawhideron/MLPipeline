@@ -1,8 +1,6 @@
 """Inference handler for FastAPI serving."""
 
 import logging
-from typing import List, Dict
-
 import sys
 
 sys.path.insert(0, "/app")
@@ -30,15 +28,15 @@ class InferenceHandler:
             self.model = SentimentPredictor(model_path)
             self.ready = True
             logger.info(f"Model loaded successfully from {model_path}")
-        except Exception as e:
-            logger.error(f"Failed to load model: {str(e)}")
+        except Exception as e:  # noqa: BLE001 -- any load failure should mark not-ready, not crash
+            logger.error(f"Failed to load model: {e!s}")
             self.ready = False
 
     def is_ready(self) -> bool:
         """Check if model is ready for inference."""
         return self.ready and self.model is not None
 
-    def predict(self, text: str) -> Dict:
+    def predict(self, text: str) -> dict:
         """
         Single text prediction.
 
@@ -53,7 +51,7 @@ class InferenceHandler:
 
         return self.model.predict(text)
 
-    def predict_batch(self, texts: List[str]) -> List[Dict]:
+    def predict_batch(self, texts: list[str]) -> list[dict]:
         """
         Batch prediction.
 
@@ -68,9 +66,9 @@ class InferenceHandler:
 
         return self.model.predict_batch(texts)
 
-    def get_model_info(self) -> Dict:
+    def get_model_info(self) -> dict:
         """Get information about loaded model."""
-        info: Dict = {
+        info: dict = {
             "model_path": self.model_path,
             "model_loaded": self.is_ready(),
         }

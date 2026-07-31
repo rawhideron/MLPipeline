@@ -1,9 +1,9 @@
 """Unit tests for FastAPI application."""
 
 import sys
+from unittest.mock import MagicMock, patch
 
 import pytest
-from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 
 
@@ -214,6 +214,7 @@ class TestBatchPredictionRequestModel:
 
     def test_empty_list_raises(self):
         from pydantic import ValidationError
+
         from serving.app import BatchPredictionRequest
 
         with pytest.raises(ValidationError):
@@ -221,6 +222,7 @@ class TestBatchPredictionRequestModel:
 
     def test_over_100_items_raises(self):
         from pydantic import ValidationError
+
         from serving.app import BatchPredictionRequest
 
         with pytest.raises(ValidationError):
