@@ -21,7 +21,7 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-from transformers.utils.notebook import NotebookProgressCallback
+from transformers.utils import is_in_notebook
 
 from src.preprocessing.text_cleaning import preprocess_batch
 
@@ -195,8 +195,13 @@ class SentimentTrainer:
             train_result = trainer.train()
 
             # NotebookProgressCallback tears down its progress tracker in on_train_end,
-            # so a post-train evaluate() call raises in notebook environments (e.g. Colab)
-            trainer.remove_callback(NotebookProgressCallback)
+            # so a post-train evaluate() call raises in notebook environments (e.g. Colab).
+            # transformers.utils.notebook imports IPython at module level, so only
+            # import/remove it when actually in a notebook (matches transformers' own check).
+            if is_in_notebook():
+                from transformers.utils.notebook import NotebookProgressCallback
+
+                trainer.remove_callback(NotebookProgressCallback)
             eval_metrics = trainer.evaluate()
             mlflow.log_metric("train_loss", train_result.training_loss)
             mlflow.log_metrics(
