@@ -128,7 +128,7 @@ if __name__ == "__main__":
     evaluator = ModelEvaluator(model_path)
     logger.info("Model loaded from %s", model_path)
 
-    test_dataset = load_dataset("imdb", split="test[:1000]")
+    test_dataset = load_dataset("stanfordnlp/imdb", split="test[:1000]")
     metrics = evaluator.evaluate(test_dataset.iter(batch_size=32))
     evaluator.save_metrics(metrics, metrics_path)
 
