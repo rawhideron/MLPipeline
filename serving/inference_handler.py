@@ -28,7 +28,8 @@ class InferenceHandler:
             self.model = SentimentPredictor(model_path)
             self.ready = True
             logger.info(f"Model loaded successfully from {model_path}")
-        except Exception as e:  # noqa: BLE001 -- any load failure should mark not-ready, not crash
+        # Any load failure should mark not-ready, not crash.
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Failed to load model: {e!s}")
             self.ready = False
 
