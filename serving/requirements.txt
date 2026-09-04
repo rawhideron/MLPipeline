@@ -6,7 +6,7 @@ PyJWT==2.13.0
 python-keycloak==3.8.0
 authlib==1.6.12
 httpx==0.25.2
-transformers==5.5.0
+transformers==5.10.1
 torch==2.13.0
 opentelemetry-sdk==1.26.0
 opentelemetry-exporter-otlp-proto-grpc==1.26.0
