@@ -22,11 +22,9 @@ def clean_text(text: str, lowercase: bool = True, remove_special: bool = True) -
     # Remove HTML tags
     text = re.sub(r"<[^>]*>", "", text)
 
-    # Remove email addresses
-    text = re.sub(r"\S+@\S+", "", text)
-
-    # Remove extra whitespace
-    text = re.sub(r"\s+", " ", text).strip()
+    # Remove email addresses and collapse whitespace. Token filtering instead of
+    # r"\S+@\S+" avoids polynomial regex backtracking (Sonar S5852).
+    text = " ".join(word for word in text.split() if "@" not in word[1:-1])
 
     if remove_special:
         # Remove punctuation

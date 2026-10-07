@@ -51,6 +51,7 @@ class TestPredict:
     def test_predict_returns_result(self, mock_predictor_class):
         _, mock_instance = mock_predictor_class
         mock_instance.predict.return_value = {
+            "text": "Great film!",
             "label": "positive",
             "confidence": 0.95,
             "probabilities": {"negative": 0.05, "positive": 0.95},
@@ -61,7 +62,7 @@ class TestPredict:
         handler = InferenceHandler("/models/trained_model")
         result = handler.predict("Great film!")
 
-        assert result["label"] == "positive"
+        assert result == mock_instance.predict.return_value
         mock_instance.predict.assert_called_once_with("Great film!")
 
     def test_predict_raises_when_not_ready(self):
@@ -81,8 +82,18 @@ class TestPredictBatch:
     def test_predict_batch_returns_list(self, mock_predictor_class):
         _, mock_instance = mock_predictor_class
         mock_instance.predict_batch.return_value = [
-            {"label": "positive", "confidence": 0.9, "probabilities": {}},
-            {"label": "negative", "confidence": 0.8, "probabilities": {}},
+            {
+                "text": "Good",
+                "label": "positive",
+                "confidence": 0.9,
+                "probabilities": {"negative": 0.1, "positive": 0.9},
+            },
+            {
+                "text": "Bad",
+                "label": "negative",
+                "confidence": 0.8,
+                "probabilities": {"negative": 0.8, "positive": 0.2},
+            },
         ]
 
         from serving.inference_handler import InferenceHandler
@@ -90,7 +101,7 @@ class TestPredictBatch:
         handler = InferenceHandler("/models/trained_model")
         results = handler.predict_batch(["Good", "Bad"])
 
-        assert len(results) == 2
+        assert results == mock_instance.predict_batch.return_value
         mock_instance.predict_batch.assert_called_once_with(["Good", "Bad"])
 
     def test_predict_batch_raises_when_not_ready(self):
@@ -116,11 +127,24 @@ class TestGetModelInfo:
         handler = InferenceHandler("/models/trained_model")
         info = handler.get_model_info()
 
-        assert info["model_loaded"] is True
-        assert info["model_name"] == "distilbert-base-uncased"
-        assert info["num_labels"] == 2
-        assert "negative" in info["labels"]
-        assert "positive" in info["labels"]
+        assert info == {
+            "model_path": "/models/trained_model",
+            "model_loaded": True,
+            "model_name": "distilbert-base-uncased",
+            "task": "sentiment-classification",
+            "num_labels": 2,
+            "labels": ["negative", "positive"],
+        }
+
+    def test_model_info_with_no_label_mapping(self, mock_predictor_class):
+        _, mock_instance = mock_predictor_class
+        mock_instance.model.config.id2label = {}
+
+        from serving.inference_handler import InferenceHandler
+
+        info = InferenceHandler("/models/trained_model").get_model_info()
+
+        assert info["labels"] == []
 
     def test_model_info_when_not_ready(self):
         with patch(
