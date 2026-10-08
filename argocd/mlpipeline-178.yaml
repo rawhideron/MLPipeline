@@ -10,6 +10,9 @@
 # Install:
 #   kubectl apply -f argocd/mlpipeline-178.yaml
 #
+# Custom images come from the kind-registry on the Zephyrus host; push them
+# there first (docker push localhost:5001/<name>:<tag>).
+#
 # The Airflow scheduler starts at 0 replicas so DAGs do not run on both
 # clusters. Scale it up only after the database has been migrated and the
 # scheduler on this cluster is scaled down.
@@ -64,6 +67,10 @@ spec:
             # Held at 0 until cutover (see header)
             scheduler:
               replicaCount: 0
+            # Pulled from the Zephyrus local registry instead of `kind load`:
+            # copying the 7 GB image to all five nodes hard-reset the host
+            image:
+              repository: kind-registry:5000/mlpipeline-serving
 
       destination:
         server: https://192.168.1.176:16443
