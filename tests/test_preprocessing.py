@@ -103,6 +103,58 @@ class TestRemoveStopwords:
             remove_stopwords(["hello", "world"])
 
 
+class TestStopwordsWithStubbedNltk:
+    """Exercise stopword paths without requiring NLTK or a corpus download."""
+
+    @pytest.fixture
+    def stub_stopwords(self, monkeypatch):
+        import sys
+        import types
+
+        corpus = types.ModuleType("nltk.corpus")
+        corpus.stopwords = types.SimpleNamespace(
+            words=lambda language: ["this", "is", "a", "it", "was"]
+        )
+        nltk = types.ModuleType("nltk")
+        nltk.corpus = corpus
+        monkeypatch.setitem(sys.modules, "nltk", nltk)
+        monkeypatch.setitem(sys.modules, "nltk.corpus", corpus)
+
+    def test_remove_stopwords_is_case_insensitive(self, stub_stopwords):
+        assert remove_stopwords(["This", "IS", "great"]) == ["great"]
+
+    def test_preprocess_batch_removes_stopwords(self, stub_stopwords):
+        processed = preprocess_batch(
+            ["This is a great product", "It was bad"], clean=True, remove_stops=True
+        )
+        assert processed == ["great product", "bad"]
+
+    def test_preprocess_batch_without_cleaning(self, stub_stopwords):
+        processed = preprocess_batch(["This is GREAT!"], clean=False, remove_stops=True)
+        assert processed == ["GREAT!"]
+
+
+class TestEmailRemoval:
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("mail me@example.com now", "mail now"),
+            ("follow @user please", "follow user please"),
+            ("trailing user@ sign", "trailing user sign"),
+            ("a\tb@c\n d", "a d"),
+        ],
+    )
+    def test_only_tokens_with_inner_at_are_removed(self, text, expected):
+        assert clean_text(text) == expected
+
+    def test_long_input_without_at_is_fast(self):
+        import time
+
+        start = time.perf_counter()
+        clean_text("a" * 100_000)
+        assert time.perf_counter() - start < 1.0
+
+
 class TestPreprocessingPipeline:
     """Test end-to-end preprocessing pipeline."""
 
