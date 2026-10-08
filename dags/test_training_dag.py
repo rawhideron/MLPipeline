@@ -21,7 +21,7 @@ from airflow.providers.standard.operators.python import PythonOperator
 from kubernetes.client import models as k8s
 
 NAMESPACE = "mlpipeline"
-IMAGE = "mlpipeline-training:1.0.4"
+IMAGE = "kind-registry:5000/mlpipeline-training:1.0.4"
 
 default_args = {
     "owner": "mlpipeline",

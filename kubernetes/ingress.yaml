@@ -27,9 +27,9 @@ spec:
             pathType: ImplementationSpecific
             backend:
               service:
-                name: mlpipeline-serving
+                name: mlpipeline-backend-178
                 port:
-                  number: 8000
+                  number: 80
 ---
 # Unauthenticated ingress for health check only
 apiVersion: networking.k8s.io/v1
@@ -59,9 +59,9 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: airflow-webserver
+                name: mlpipeline-backend-178
                 port:
-                  number: 8080
+                  number: 80
           - path: /oauth2
             pathType: Prefix
             backend:
@@ -73,6 +73,39 @@ spec:
             pathType: Exact
             backend:
               service:
-                name: mlpipeline-serving
+                name: mlpipeline-backend-178
                 port:
-                  number: 8000
+                  number: 80
+---
+# Backend on the Zephyrus kind cluster, reached through the rag-forward relay
+# (192.168.1.178:18000 -> kind ingress-nginx NodePort 30717). That ingress
+# routes /airflow to the webserver and everything else to serving; see
+# kubernetes/zephyrus/ingress.yaml. Same pattern as rag/rag-frontend-176.
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlpipeline-backend-178
+  namespace: mlpipeline
+  labels:
+    app.kubernetes.io/name: mlpipeline
+    app.kubernetes.io/component: ingress
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 18000
+---
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: mlpipeline-backend-178
+  namespace: mlpipeline
+  labels:
+    app.kubernetes.io/name: mlpipeline
+    app.kubernetes.io/component: ingress
+subsets:
+  - addresses:
+      - ip: 192.168.1.178
+    ports:
+      - name: http
+        port: 18000
