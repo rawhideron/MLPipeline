@@ -72,6 +72,9 @@ spec:
     server: https://kubernetes.default.svc
   - namespace: 'argocd'
     server: https://kubernetes.default.svc
+  # Zephyrus kind cluster (backend migration, see argocd/mlpipeline-178.yaml)
+  - namespace: 'mlpipeline'
+    server: https://192.168.1.176:16443
 
   clusterResourceWhitelist:
   - group: ''
