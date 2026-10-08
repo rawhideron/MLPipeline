@@ -34,7 +34,7 @@ NAMESPACE = "mlpipeline"
 # is inside the mlpipeline-etl container, not the git-synced dags repo.
 CONFIG_PATH = "/app/configs/etl_config.yaml"
 
-ETL_IMAGE = "mlpipeline-etl:1.0.0"
+ETL_IMAGE = "kind-registry:5000/mlpipeline-etl:1.0.0"
 ETL_DATA_PVC = "mlpipeline-etl-data"
 
 
