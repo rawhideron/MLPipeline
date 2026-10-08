@@ -28,6 +28,11 @@ spec:
     repoURL: https://github.com/rawhideron/MLPipeline
     targetRevision: main
     path: kubernetes
+    # Edge only (ingress + Service/Endpoints to Zephyrus). Backend manifests
+    # sync to Zephyrus via mlpipeline-backend-178. Keep namespace.yaml: pruning
+    # it would delete the namespace, oauth2-proxy and its secrets with it.
+    directory:
+      include: '{ingress.yaml,namespace.yaml}'
 
   destination:
     server: https://kubernetes.default.svc
