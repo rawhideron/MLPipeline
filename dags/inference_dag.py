@@ -29,7 +29,7 @@ dag = DAG(
 )
 
 NAMESPACE = "mlpipeline"
-IMAGE = "mlpipeline-training:1.0.4"
+IMAGE = "kind-registry:5000/mlpipeline-training:1.0.4"
 
 logger = logging.getLogger(__name__)
 

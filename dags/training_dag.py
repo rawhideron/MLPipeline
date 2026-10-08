@@ -45,7 +45,7 @@ CONFIG_PATH = f"{REPO_PATH}/configs/training_config.yaml"
 MODEL_PATH = "/models/trained_model"
 
 # Custom image built from training/Dockerfile — has torch, transformers, datasets
-TRAINING_IMAGE = "mlpipeline-training:1.0.4"
+TRAINING_IMAGE = "kind-registry:5000/mlpipeline-training:1.0.4"
 
 # PVC names match the Helm Release.Name prefix (mlpipeline-airflow)
 DAGS_PVC = "mlpipeline-airflow-dags"

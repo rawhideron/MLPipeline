@@ -13,9 +13,9 @@
 # Custom images come from the kind-registry on the Zephyrus host; push them
 # there first (docker push localhost:5001/<name>:<tag>).
 #
-# The Airflow scheduler starts at 0 replicas so DAGs do not run on both
-# clusters. Scale it up only after the database has been migrated and the
-# scheduler on this cluster is scaled down.
+# Apply only during cutover, after the Airflow database has been restored
+# from reunion (with all DAGs paused there) -- otherwise DAGs run on both
+# clusters.
 
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
@@ -64,9 +64,9 @@ spec:
             # Zephyrus has ~3 GiB free; keep serving at a single replica
             autoscaling:
               minReplicas: 1
-            # Held at 0 until cutover (see header)
+            # Scheduler runs here after cutover; DAGs on reunion stay paused
             scheduler:
-              replicaCount: 0
+              replicaCount: 1
             # Pulled from the Zephyrus local registry instead of `kind load`:
             # copying the 7 GB image to all five nodes hard-reset the host
             image:
