@@ -1,8 +1,8 @@
 torch==2.13.0
-transformers==5.5.0
-datasets==2.16.1
+transformers==5.10.1
+datasets==5.0.1
 accelerate>=1.1.0
 scikit-learn==1.5.0
 numpy==1.24.3
 pyyaml==6.0.1
-mlflow==3.11.1
+mlflow==3.16.0
