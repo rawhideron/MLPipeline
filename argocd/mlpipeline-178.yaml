@@ -1,0 +1,132 @@
+# MLPipeline backend on the Zephyrus kind cluster (192.168.1.178 / .176)
+#
+# Parallel deploy for the backend migration: postgres, airflow and serving run
+# on the remote cluster while the public edge (ingress, TLS, oauth2-proxy) stays
+# on this cluster. Same pattern as ragpipeline (rag-frontend-176).
+#
+# The remote cluster is registered in ArgoCD as "reunion-176" and reached via
+# the rag-forward relay on the Zephyrus host (:16443 -> kind API).
+#
+# Install:
+#   kubectl apply -f argocd/mlpipeline-178.yaml
+#
+# The Airflow scheduler starts at 0 replicas so DAGs do not run on both
+# clusters. Scale it up only after the database has been migrated and the
+# scheduler on this cluster is scaled down.
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: mlpipeline-components-178
+  namespace: argocd
+spec:
+  generators:
+  - list:
+      elements:
+      - name: postgres
+        helmChart: mlpipeline-postgres
+        syncWave: "0"
+      - name: airflow
+        helmChart: mlpipeline-airflow
+        syncWave: "1"
+      - name: serving
+        helmChart: mlpipeline-serving
+        syncWave: "2"
+
+  template:
+    metadata:
+      name: mlpipeline-{{name}}-178
+      annotations:
+        argocd.argoproj.io/sync-wave: "{{syncWave}}"
+      labels:
+        app.kubernetes.io/name: mlpipeline
+        app.kubernetes.io/component: "{{name}}"
+        argocd.argoproj.io/instance: mlpipeline-178
+
+    spec:
+      project: mlpipeline-project
+
+      source:
+        repoURL: https://github.com/rawhideron/MLPipeline
+        targetRevision: main
+        path: helm/{{helmChart}}
+
+        helm:
+          # Same release names as on reunion so service DNS names match
+          releaseName: mlpipeline-{{name}}
+          values: |
+            replicaCount: 1
+            namespace: mlpipeline
+            domain: mlpipeline.duckdns.org
+            # Zephyrus has ~3 GiB free; keep serving at a single replica
+            autoscaling:
+              minReplicas: 1
+            # Held at 0 until cutover (see header)
+            scheduler:
+              replicaCount: 0
+
+      destination:
+        server: https://192.168.1.176:16443
+        namespace: mlpipeline
+
+      ignoreDifferences:
+      # HPA owns serving replicas; scheduler replicas stay git-managed
+      - group: apps
+        kind: Deployment
+        name: mlpipeline-serving
+        jsonPointers:
+        - /spec/replicas
+
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+        - CreateNamespace=true
+        - RespectIgnoreDifferences=true
+
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+
+---
+# Raw manifests (RBAC, ConfigMaps, Secrets, ETL PVC) plus the backend ingress
+# in kubernetes/zephyrus/. The public ingress in kubernetes/ingress.yaml stays
+# on this cluster only.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mlpipeline-backend-178
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: mlpipeline-project
+
+  source:
+    repoURL: https://github.com/rawhideron/MLPipeline
+    targetRevision: main
+    path: kubernetes
+    directory:
+      recurse: true
+      exclude: ingress.yaml
+
+  destination:
+    server: https://192.168.1.176:16443
+    namespace: mlpipeline
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
