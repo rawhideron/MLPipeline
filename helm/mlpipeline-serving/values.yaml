@@ -127,7 +127,7 @@ affinity:
       - weight: 50
         preference:
           matchExpressions:
-            - key: accelerator
+            - key: nvidia.com/gpu.present
               operator: In
               values:
-                - nvidia.com/gpu
+                - "true"
