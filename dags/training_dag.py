@@ -141,8 +141,15 @@ training_task = KubernetesPodOperator(
     in_cluster=True,
     get_logs=True,
     container_resources=k8s.V1ResourceRequirements(
-        requests={"memory": "1Gi", "cpu": "1"},
-        limits={"memory": "2560Mi", "cpu": "2"},
+        requests={"memory": "1Gi", "cpu": "1", "nvidia.com/gpu": "1"},
+        limits={"memory": "2560Mi", "cpu": "2", "nvidia.com/gpu": "1"},
+    ),
+    node_selector={"nvidia.com/gpu.present": "true"},
+    full_pod_spec=k8s.V1Pod(
+        spec=k8s.V1PodSpec(
+            runtime_class_name="nvidia",
+            containers=[k8s.V1Container(name="base")],
+        )
     ),
     volumes=[_models_volume()],
     volume_mounts=[_models_mount()],

@@ -83,7 +83,7 @@ spec:
             - name: AIRFLOW_KEYCLOAK_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: airflow-keycloak-secret
+                  name: keycloak-airflow-secret
                   key: client-secret
             {{- range .Values.env }}
             - name: {{ .name }}

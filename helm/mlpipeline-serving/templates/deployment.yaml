@@ -23,6 +23,10 @@ spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.affinity }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}
+      {{- end }}
       containers:
         - name: serving
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
