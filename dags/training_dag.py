@@ -144,6 +144,13 @@ training_task = KubernetesPodOperator(
         requests={"memory": "1Gi", "cpu": "1", "nvidia.com/gpu": "1"},
         limits={"memory": "2560Mi", "cpu": "2", "nvidia.com/gpu": "1"},
     ),
+    env_vars=[
+        # mlflow's local filesystem backend ("mlruns", the default here) is in
+        # maintenance mode as of mlflow 3.x and refuses to run without this --
+        # there's no tracking server/database configured for this pipeline, so
+        # opting into the (still-supported) file store preserves prior behavior.
+        k8s.V1EnvVar(name="MLFLOW_ALLOW_FILE_STORE", value="true"),
+    ],
     node_selector={"nvidia.com/gpu.present": "true"},
     full_pod_spec=k8s.V1Pod(
         spec=k8s.V1PodSpec(
