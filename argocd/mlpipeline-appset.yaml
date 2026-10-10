@@ -18,16 +18,8 @@ spec:
   generators:
   - list:
       elements:
-      # Deploy postgres first (syncWave "0"), then airflow and serving depend on it
-      - name: postgres
-        helmChart: mlpipeline-postgres
-        syncWave: "0"
-      - name: airflow
-        helmChart: mlpipeline-airflow
-        syncWave: "1"
-      - name: serving
-        helmChart: mlpipeline-serving
-        syncWave: "2"
+      # Only the edge runs here; postgres, airflow and serving moved to the
+      # Zephyrus cluster (argocd/mlpipeline-178.yaml)
       - name: oauth2proxy
         helmChart: mlpipeline-oauth2proxy
         syncWave: "2"

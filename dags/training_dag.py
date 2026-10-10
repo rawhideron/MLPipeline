@@ -10,7 +10,7 @@ This DAG orchestrates the following steps:
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import yaml
 from airflow import DAG
@@ -33,7 +33,7 @@ dag = DAG(
     default_args=default_args,
     description="End-to-end NLP model training pipeline",
     schedule="@weekly",
-    start_date=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    start_date=datetime(2026, 1, 1, tzinfo=UTC),
     catchup=False,
     tags=["ml", "training", "nlp"],
 )

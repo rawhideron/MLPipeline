@@ -12,7 +12,7 @@ Steps:
 Run manually from the Airflow UI: DAGs → mlpipeline_test_training → Trigger DAG
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
@@ -34,7 +34,7 @@ dag = DAG(
     default_args=default_args,
     description="Quick training test — 1 epoch on 200 IMDB samples",
     schedule=None,  # manual trigger only
-    start_date=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    start_date=datetime(2026, 1, 1, tzinfo=UTC),
     catchup=False,
     tags=["test", "training"],
 )
