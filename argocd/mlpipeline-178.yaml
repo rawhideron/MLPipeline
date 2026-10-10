@@ -125,12 +125,24 @@ spec:
     server: https://192.168.1.176:16443
     namespace: mlpipeline
 
+  ignoreDifferences:
+  # keycloak-airflow-secret's committed client-secret is a placeholder
+  # ("airflow_client_secret_change_me") -- the real value is set directly
+  # on the cluster to match whatever Keycloak actually has configured for
+  # the airflow-webserver client, and must not be reverted by self-heal.
+  - group: ""
+    kind: Secret
+    name: keycloak-airflow-secret
+    jsonPointers:
+      - /data
+
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
     - CreateNamespace=true
+    - RespectIgnoreDifferences=true
     retry:
       limit: 5
       backoff:
