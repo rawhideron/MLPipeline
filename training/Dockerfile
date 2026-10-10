@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY training/requirements.txt .
 RUN pip install --no-cache-dir \
-    --index-url https://download.pytorch.org/whl/cpu \
+    --index-url https://download.pytorch.org/whl/cu130 \
     --extra-index-url https://pypi.org/simple \
     -r requirements.txt
 
