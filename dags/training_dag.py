@@ -89,7 +89,7 @@ data_validation_task = KubernetesPodOperator(
         (
             "from datasets import load_dataset\n"
             "print('Checking IMDB dataset accessibility...')\n"
-            "ds = load_dataset('imdb', split='train[:100]')\n"
+            "ds = load_dataset('stanfordnlp/imdb',split='train[:100]')\n"
             "assert 'text' in ds.features, \"Missing 'text' column\"\n"
             "assert 'label' in ds.features, \"Missing 'label' column\"\n"
             "assert len(ds) == 100\n"
@@ -117,7 +117,7 @@ preprocessing_task = KubernetesPodOperator(
             "from src.preprocessing.text_cleaning import preprocess_batch\n"
             "from datasets import load_dataset\n"
             "print('Loading sample data for preprocessing check...')\n"
-            "ds = load_dataset('imdb', split='train[:50]')\n"
+            "ds = load_dataset('stanfordnlp/imdb',split='train[:50]')\n"
             "cleaned = preprocess_batch(ds['text'], clean=True)\n"
             "assert len(cleaned) == 50\n"
             "print(f'Preprocessing passed: {len(cleaned)} texts cleaned')\n"
