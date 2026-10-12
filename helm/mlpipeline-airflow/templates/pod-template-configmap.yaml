@@ -39,6 +39,10 @@ data:
                   key: secret-key
             - name: AIRFLOW__WORKERS__MAX_FAILED_HEARTBEATS
               value: "60"
+            {{- range .Values.otelEnv }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
           volumeMounts:
             - name: dags
               mountPath: /opt/airflow/dags

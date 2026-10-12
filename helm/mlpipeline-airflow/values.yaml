@@ -192,6 +192,19 @@ env:
   - name: OAUTH_CLIENT_ID
     value: "airflow-webserver"
 
+# OpenTelemetry tracing: DAG runs and task instances are exported as traces to
+# the OTel gateway on Zephyrus, which forwards them to Tempo. Applied to the
+# scheduler, dag-processor, webserver and KubernetesExecutor worker pods.
+otelEnv:
+  - name: AIRFLOW__TRACES__OTEL_ON
+    value: "True"
+  - name: OTEL_SERVICE_NAME
+    value: "airflow"
+  - name: OTEL_EXPORTER_OTLP_ENDPOINT
+    value: "http://otel-gateway-opentelemetry-collector.observability.svc.cluster.local:4317"
+  - name: OTEL_RESOURCE_ATTRIBUTES
+    value: "k8s.cluster.name=zephyrus,k8s.namespace.name=mlpipeline"
+
 # Secrets
 secrets:
   enabled: true
