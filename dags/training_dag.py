@@ -132,6 +132,9 @@ preprocessing_task = KubernetesPodOperator(
 # Fine-tune distilbert; saves model to /models/trained_model on the shared PVC
 training_task = KubernetesPodOperator(
     task_id="train_model",
+    # A full-power GPU run has hard-reset the Zephyrus host; an automatic
+    # retry just triggers a second reset, so fail once and wait for a human.
+    retries=0,
     namespace=NAMESPACE,
     image=TRAINING_IMAGE,
     image_pull_policy="IfNotPresent",
