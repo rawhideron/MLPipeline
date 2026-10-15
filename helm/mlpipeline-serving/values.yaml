@@ -46,7 +46,13 @@ resources:
 # Persistence for model artifacts
 persistence:
   enabled: true
-  storageClassName: "standard"
+  # Bound to the static mlpipeline-models-shared PV (ops/zephyrus/models-shared-pv.yaml),
+  # a host directory mounted into both GPU-pool nodes, so serving and
+  # train_model can fail over between reunion-worker and reunion-worker2.
+  storageClassName: ""
+  volumeName: mlpipeline-models-shared
+  accessModes:
+    - ReadWriteMany
   size: 10Gi
   mountPath: /models
   subPath: ""

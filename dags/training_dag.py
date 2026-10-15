@@ -35,6 +35,8 @@ dag = DAG(
     schedule="@weekly",
     start_date=datetime(2026, 1, 1, tzinfo=UTC),
     catchup=False,
+    # Only one physical GPU exists; never let two runs compete for it.
+    max_active_runs=1,
     tags=["ml", "training", "nlp"],
 )
 
@@ -63,6 +65,70 @@ def _models_volume():
 
 def _models_mount():
     return k8s.V1VolumeMount(name="models", mount_path="/models")
+
+
+# The single RTX 3070 is exposed through two kind nodes: reunion-worker
+# (primary) and reunion-worker2 (secondary), both labelled with GPU_POOL_LABEL.
+# The ops/zephyrus/gpu-exclusive-policy.yaml admission policy rejects any GPU
+# pod that lacks the label and affinity below.
+GPU_EXCLUSIVE_LABEL = "mlpipeline.io/gpu-exclusive"
+GPU_POOL_LABEL = "mlpipeline.io/gpu-pool"
+GPU_ROLE_LABEL = "mlpipeline.io/gpu-role"
+
+
+def _gpu_affinity():
+    return k8s.V1Affinity(
+        # Must land on a GPU-pool node; prefer the primary so the secondary is
+        # only used when the primary is down or cordoned.
+        node_affinity=k8s.V1NodeAffinity(
+            required_during_scheduling_ignored_during_execution=k8s.V1NodeSelector(
+                node_selector_terms=[
+                    k8s.V1NodeSelectorTerm(
+                        match_expressions=[
+                            k8s.V1NodeSelectorRequirement(
+                                key=GPU_POOL_LABEL, operator="Exists"
+                            )
+                        ]
+                    )
+                ]
+            ),
+            preferred_during_scheduling_ignored_during_execution=[
+                k8s.V1PreferredSchedulingTerm(
+                    weight=100,
+                    preference=k8s.V1NodeSelectorTerm(
+                        match_expressions=[
+                            k8s.V1NodeSelectorRequirement(
+                                key=GPU_ROLE_LABEL, operator="In", values=["primary"]
+                            )
+                        ]
+                    ),
+                )
+            ],
+        ),
+        # Every pool node shares the same GPU_POOL_LABEL value, so this keeps a
+        # second GPU pod Pending anywhere in the pool while one is running.
+        pod_anti_affinity=k8s.V1PodAntiAffinity(
+            required_during_scheduling_ignored_during_execution=[
+                k8s.V1PodAffinityTerm(
+                    label_selector=k8s.V1LabelSelector(
+                        match_labels={GPU_EXCLUSIVE_LABEL: "true"}
+                    ),
+                    topology_key=GPU_POOL_LABEL,
+                    namespace_selector=k8s.V1LabelSelector(),
+                )
+            ]
+        ),
+    )
+
+
+def _gpu_tolerations():
+    # Evict from a dead node after 30s (default 300s) so a rerun can fail over.
+    return [
+        k8s.V1Toleration(
+            key=key, operator="Exists", effect="NoExecute", toleration_seconds=30
+        )
+        for key in ("node.kubernetes.io/not-ready", "node.kubernetes.io/unreachable")
+    ]
 
 
 def log_pipeline_start():
@@ -135,6 +201,7 @@ training_task = KubernetesPodOperator(
     # A full-power GPU run has hard-reset the Zephyrus host; an automatic
     # retry just triggers a second reset, so fail once and wait for a human.
     retries=0,
+    max_active_tis_per_dag=1,
     namespace=NAMESPACE,
     image=TRAINING_IMAGE,
     image_pull_policy="IfNotPresent",
@@ -154,7 +221,9 @@ training_task = KubernetesPodOperator(
         # opting into the (still-supported) file store preserves prior behavior.
         k8s.V1EnvVar(name="MLFLOW_ALLOW_FILE_STORE", value="true"),
     ],
-    node_selector={"nvidia.com/gpu.present": "true"},
+    labels={GPU_EXCLUSIVE_LABEL: "true"},
+    affinity=_gpu_affinity(),
+    tolerations=_gpu_tolerations(),
     # The models PVC had stale root-owned subdirectories from before this
     # image ran as a non-root user; fsGroup keeps future writes consistent
     # regardless of which UID created a given directory first.
