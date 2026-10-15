@@ -1,0 +1,19 @@
+# Cap the RTX 3070 Laptop GPU so sustained training load stays well below the
+# point where the ASUS EC cuts power (hard resets ~3 min into full-power runs).
+# Install: see ops/zephyrus/README.md ("Host: GPU power cap").
+[Unit]
+Description=Cap NVIDIA GPU power and clocks (Zephyrus thermal resets)
+After=nvidia-persistenced.service
+Wants=nvidia-persistenced.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/nvidia-smi -pm 1
+# Some laptop GPUs reject power-limit changes; the clock lock below still applies.
+ExecStart=-/usr/bin/nvidia-smi -pl 50
+ExecStart=/usr/bin/nvidia-smi -lgc 210,1400
+ExecStop=/usr/bin/nvidia-smi -rgc
+
+[Install]
+WantedBy=multi-user.target

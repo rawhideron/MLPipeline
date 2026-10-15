@@ -45,3 +45,48 @@ the old PVC has to be deleted once while ArgoCD recreates it.
 
 Rollback: revert the chart change, delete the new PVC, and recreate the old one
 with `volumeName: <old-pv>` and `storageClassName: standard`.
+
+## Retiring reunion-worker3 and reunion-worker4
+
+`move-local-pv.sh <namespace> <pvc> <target-node>` moves one local-path PV to
+another node under the same PVC name: it pre-creates a Retain PV on the target
+(pre-bound to the PVC, hostPath not yet present), deletes the PVC and its pods,
+copies the data once the old pod has stopped (also saving
+`~/k8s-node-retire-backup-20261015/<pvc>.tar`), and the recreated pod starts on
+the copied data. `DRY_RUN=1` validates without changing anything.
+
+```bash
+bash ops/zephyrus/retire-nodes.sh cordon
+bash ops/zephyrus/move-local-pv.sh mlpipeline data-mlpipeline-postgres-0 reunion-worker2
+bash ops/zephyrus/move-local-pv.sh mlpipeline data-mlpipeline-airflow-postgresql-0 reunion-worker2
+bash ops/zephyrus/move-local-pv.sh rag qdrant-data reunion-worker
+bash ops/zephyrus/move-local-pv.sh observability \
+  prometheus-kube-prometheus-stack-prometheus-db-prometheus-kube-prometheus-stack-prometheus-0 reunion-worker
+bash ops/zephyrus/retire-nodes.sh drain
+bash ops/zephyrus/retire-nodes.sh remove
+```
+
+`qdrant-data` is recreated by ArgoCD (ragpipeline-workloads) rather than a
+StatefulSet; if it doesn't reappear within a few minutes, run
+`argocd app sync ragpipeline-workloads` on pop-os.
+
+`remove` keeps the stopped containers and their `/var` volumes. Rollback:
+`docker start <node>` (the kubelet re-registers it), then `kubectl uncordon <node>`.
+
+## Host: GPU power cap
+
+Sustained full-power GPU load (80–98 W) triggers an ASUS EC power cut about
+3 minutes in. Cap power/clocks at boot and disable runtime D3 (the GSP firmware
+crashed resuming from it):
+
+```bash
+sudo cp ops/zephyrus/host/nvidia-power-cap.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now nvidia-power-cap.service
+nvidia-smi -q -d POWER,CLOCK | grep -E "Current Power Limit|Applications Clocks|Graphics"
+
+sudo cp ops/zephyrus/host/nvidia-no-rtd3.conf /etc/modprobe.d/
+sudo update-initramfs -u   # takes effect after the next reboot
+```
+
+The hardware side (cleaning the fans/heatsink, re-pasting, a BIOS newer than
+GA503QR.416) still matters: the CPU idles around 75 °C.
