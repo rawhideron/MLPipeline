@@ -29,6 +29,19 @@ from src.preprocessing.text_cleaning import preprocess_batch
 logger = logging.getLogger(__name__)
 
 
+def make_world_readable(path: str) -> None:
+    """Make every file and directory under path readable by any user.
+
+    safetensors writes model.safetensors with mode 0600, and the serving
+    container runs as a different UID than training, so without this the
+    shared models volume holds a model that serving can't open.
+    """
+    root = Path(path)
+    for p in [root, *root.rglob("*")]:
+        mode = p.stat().st_mode
+        p.chmod(mode | (0o555 if p.is_dir() else 0o444))
+
+
 class SentimentTrainer:
     """Train sentiment classification models using HuggingFace Transformers."""
 
@@ -217,6 +230,7 @@ class SentimentTrainer:
 
             trainer.save_model(output_dir)
             self.tokenizer.save_pretrained(output_dir)
+            make_world_readable(output_dir)
 
             # mlflow.log_artifacts + mlflow.register_model(f"runs:/{run_id}/model", ...) doesn't
             # work on MLflow 3.x: register_model now requires a LoggedModel entity for runs:/

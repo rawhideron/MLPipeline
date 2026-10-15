@@ -386,3 +386,17 @@ class TestSentimentTrainerMethods:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+    def test_make_world_readable_opens_private_files(self, tmp_path):
+        from src.models.training import make_world_readable
+
+        sub = tmp_path / "checkpoint-1"
+        sub.mkdir(mode=0o700)
+        model_file = sub / "model.safetensors"
+        model_file.write_bytes(b"x")
+        model_file.chmod(0o600)
+
+        make_world_readable(str(tmp_path))
+
+        assert model_file.stat().st_mode & 0o777 == 0o644
+        assert sub.stat().st_mode & 0o777 == 0o755
