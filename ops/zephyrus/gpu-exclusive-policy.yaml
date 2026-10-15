@@ -1,0 +1,77 @@
+# One physical GPU (RTX 3070) is exposed through two kind nodes:
+#   reunion-worker  (mlpipeline.io/gpu-role=primary)
+#   reunion-worker2 (mlpipeline.io/gpu-role=secondary)
+# both labelled mlpipeline.io/gpu-pool=rtx3070 (see gpu-node-labels.sh).
+#
+# This policy makes sure only one pod can hold the GPU at a time, cluster-wide:
+# every pod that requests nvidia.com/gpu must carry the gpu-exclusive label and
+# a required pod anti-affinity on that label across the gpu-pool topology, must
+# be pinned to the pool, and may not bypass the scheduler with spec.nodeName.
+#
+# Applied directly (not synced by ArgoCD -- the mlpipeline-project AppProject
+# does not whitelist admissionregistration resources):
+#   kubectl apply -f ops/zephyrus/gpu-exclusive-policy.yaml
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: gpu-exclusive
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["pods"]
+  variables:
+    - name: gpuContainers
+      expression: >-
+        (object.spec.containers + (has(object.spec.initContainers) ? object.spec.initContainers : []))
+        .filter(c, has(c.resources) &&
+          ((has(c.resources.limits) && 'nvidia.com/gpu' in c.resources.limits) ||
+           (has(c.resources.requests) && 'nvidia.com/gpu' in c.resources.requests)))
+    - name: requestsGpu
+      expression: size(variables.gpuContainers) > 0
+  validations:
+    - expression: >-
+        !variables.requestsGpu ||
+        (has(object.metadata.labels) &&
+         object.metadata.labels[?'mlpipeline.io/gpu-exclusive'].orValue('') == 'true')
+      message: "GPU pods must have label mlpipeline.io/gpu-exclusive=true"
+    - expression: >-
+        !variables.requestsGpu ||
+        (has(object.spec.affinity) && has(object.spec.affinity.podAntiAffinity) &&
+         has(object.spec.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution) &&
+         object.spec.affinity.podAntiAffinity.requiredDuringSchedulingIgnoredDuringExecution.exists(t,
+           t.topologyKey == 'mlpipeline.io/gpu-pool' && has(t.labelSelector) &&
+           has(t.labelSelector.matchLabels) &&
+           t.labelSelector.matchLabels[?'mlpipeline.io/gpu-exclusive'].orValue('') == 'true' &&
+           has(t.namespaceSelector)))
+      message: >-
+        GPU pods must have a required podAntiAffinity on mlpipeline.io/gpu-exclusive=true
+        with topologyKey mlpipeline.io/gpu-pool and a namespaceSelector of {} (all namespaces)
+    - expression: >-
+        !variables.requestsGpu ||
+        (has(object.spec.affinity) && has(object.spec.affinity.nodeAffinity) &&
+         has(object.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution) &&
+         object.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms.all(term,
+           has(term.matchExpressions) &&
+           term.matchExpressions.exists(e, e.key == 'mlpipeline.io/gpu-pool')))
+      message: "GPU pods must require nodes with the mlpipeline.io/gpu-pool label"
+    - expression: "!variables.requestsGpu || !has(object.spec.nodeName) || object.spec.nodeName == ''"
+      message: "GPU pods may not set spec.nodeName (it bypasses the exclusivity anti-affinity)"
+    - expression: >-
+        !variables.requestsGpu ||
+        (size(variables.gpuContainers) == 1 &&
+         variables.gpuContainers.all(c,
+           (!has(c.resources.limits) || string(c.resources.limits[?'nvidia.com/gpu'].orValue('1')) == '1') &&
+           (!has(c.resources.requests) || string(c.resources.requests[?'nvidia.com/gpu'].orValue('1')) == '1')))
+      message: "GPU pods may request at most one GPU in a single container"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: gpu-exclusive
+spec:
+  policyName: gpu-exclusive
+  validationActions: [Deny]

@@ -65,6 +65,7 @@ When investigating or changing any Airflow configuration, consult the official d
 
 - Clusters: see Architecture. Older docs that say everything runs on `kind-reunion` predate the backend move to Zephyrus.
 - Custom images (`mlpipeline-serving`, `-training`, `-etl`) are pulled from `kind-registry:5000` on Zephyrus. Push with `docker push localhost:5001/<name>:<tag>` on that host. Do not `kind load` them there — fanning a multi-GB image out to all five nodes has hard-reset the laptop.
+- GPU: the single RTX 3070 is exposed through `reunion-worker` (`mlpipeline.io/gpu-role=primary`) and `reunion-worker2` (`secondary`), both `mlpipeline.io/gpu-pool=rtx3070` (`ops/zephyrus/gpu-node-labels.sh`). Only one GPU pod may run at a time: the `gpu-exclusive` ValidatingAdmissionPolicy (`ops/zephyrus/gpu-exclusive-policy.yaml`, applied directly, not by ArgoCD) rejects GPU pods without the `mlpipeline.io/gpu-exclusive=true` label plus pool anti-affinity — see `_gpu_affinity()` in `dags/training_dag.py`. Those nodes were recreated with `--runtime=nvidia` and the `/dev/null:/var/run/nvidia-container-devices/all` mount; snap docker's `daemon.json` does not keep `default-runtime: nvidia`.
 - Keycloak realm: `MLPipeline` — must be pre-configured before deploying (see `KEYCLOAK_SETUP.md`)
 - DNS: `mlpipeline.duckdns.org` — requires a duckdns.org account
 - For local LLM features: use [Ollama](https://ollama.com) with Mistral, Llama 3, or Phi-3 (no paid API required)
