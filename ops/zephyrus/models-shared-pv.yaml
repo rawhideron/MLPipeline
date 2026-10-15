@@ -1,0 +1,32 @@
+# Static volume for the trained model, shared by both GPU-pool nodes.
+# /home/ron-goodman/mlpipeline-shared on the Zephyrus host is bind-mounted into
+# reunion-worker and reunion-worker2 at /mnt/shared (recreate-gpu-node.sh), so
+# train_model and serving can run on either node and still see the same files.
+#
+# Pre-bound to the serving chart's PVC (mlpipeline-serving-models). Applied
+# directly -- the mlpipeline-project AppProject does not whitelist
+# PersistentVolumes:
+#   kubectl apply -f ops/zephyrus/models-shared-pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mlpipeline-models-shared
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  claimRef:
+    namespace: mlpipeline
+    name: mlpipeline-serving-models
+  hostPath:
+    path: /mnt/shared/models
+    type: Directory
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: mlpipeline.io/gpu-pool
+              operator: Exists
