@@ -125,6 +125,6 @@ gh pr merge <number> --merge --auto
 
 **Never commit directly to `main` or `dev`.**
 
-**Never run `helm upgrade` or `kubectl apply` to modify cluster state directly** — ArgoCD owns all cluster resources. Make changes in the repo and let ArgoCD sync them.
+**Direct cluster changes are allowed** — `kubectl`, `helm`, `docker` and `kind` on Zephyrus may be used to change cluster state directly (node maintenance, PV migrations, backups/restores, debugging). ArgoCD still auto-syncs with `selfHeal: true`, so a direct change to a resource ArgoCD manages is reverted on the next sync unless the same change is made in the repo or auto-sync for that app is paused first (on the `mlpipeline-components-178` ApplicationSet, not the generated apps). Changes meant to persist (manifests, Helm values, DAGs) still go through the PR flow above.
 
 Branch protection is enabled on `dev` and `main` (CI must pass). Auto-merge is enabled in repo settings.
