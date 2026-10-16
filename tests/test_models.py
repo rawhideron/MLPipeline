@@ -371,11 +371,13 @@ class TestSentimentTrainerMethods:
             ) as mock_trainer_cls,
             patch("src.models.training.mlflow", mock_mlflow),
             patch("pathlib.Path.mkdir"),
+            patch("src.models.training.make_world_readable") as mock_readable,
         ):
             result = trainer.train()
 
         assert result == {"train_loss": 0.42, "status": "completed"}
         mock_hf_trainer.train.assert_called_once()
+        mock_readable.assert_called_once_with(trainer.config["output"]["model_path"])
 
         # Extract and verify the compute_metrics closure passed to Trainer
         compute_metrics = mock_trainer_cls.call_args[1]["compute_metrics"]
