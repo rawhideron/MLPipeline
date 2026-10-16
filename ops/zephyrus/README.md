@@ -76,17 +76,28 @@ StatefulSet; if it doesn't reappear within a few minutes, run
 ## Host: GPU power cap
 
 Sustained full-power GPU load (80–98 W) triggers an ASUS EC power cut about
-3 minutes in. Cap power/clocks at boot and disable runtime D3 (the GSP firmware
-crashed resuming from it):
+3 minutes in. Cap clocks at boot, turn off Dynamic Boost, and disable runtime
+D3 (the GSP firmware crashed resuming from it):
 
 ```bash
 sudo cp ops/zephyrus/host/nvidia-power-cap.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now nvidia-power-cap.service
-nvidia-smi -q -d POWER,CLOCK | grep -E "Current Power Limit|Applications Clocks|Graphics"
+systemctl status nvidia-power-cap.service --no-pager
 
-sudo cp ops/zephyrus/host/nvidia-no-rtd3.conf /etc/modprobe.d/
-sudo update-initramfs -u   # takes effect after the next reboot
+# Dynamic Boost lets the GPU draw past its 80 W default (97 W seen before a reset)
+sudo systemctl disable --now nvidia-powerd
+
+# Same file name as the driver package's /usr/lib/modprobe.d/nvidia-runtimepm.conf
+# so it replaces that file's DynamicPowerManagement=0x02
+sudo cp ops/zephyrus/host/nvidia-runtimepm.conf /etc/modprobe.d/nvidia-runtimepm.conf
+modprobe -c | grep DynamicPowerManagement   # only 0x00 should be listed
+sudo update-initramfs -u                    # takes effect after the next reboot
 ```
+
+On this RTX 3070 Laptop GPU `nvidia-smi -pl` is rejected ("Changing power
+management limit is not supported"); the unit ignores that and the
+`-lgc 210,1400` clock lock is what limits power. To tighten it, change the
+upper clock (e.g. `210,1200`) and `sudo systemctl restart nvidia-power-cap`.
 
 The hardware side (cleaning the fans/heatsink, re-pasting, a BIOS newer than
 GA503QR.416) still matters: the CPU idles around 75 °C.
