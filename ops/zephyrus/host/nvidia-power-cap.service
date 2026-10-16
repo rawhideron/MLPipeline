@@ -12,7 +12,7 @@ RemainAfterExit=yes
 ExecStart=/usr/bin/nvidia-smi -pm 1
 # Some laptop GPUs reject power-limit changes; the clock lock below still applies.
 ExecStart=-/usr/bin/nvidia-smi -pl 50
-ExecStart=/usr/bin/nvidia-smi -lgc 210,1400
+ExecStart=/usr/bin/nvidia-smi -lgc 210,1000
 ExecStop=/usr/bin/nvidia-smi -rgc
 
 [Install]

@@ -96,8 +96,11 @@ sudo update-initramfs -u                    # takes effect after the next reboot
 
 On this RTX 3070 Laptop GPU `nvidia-smi -pl` is rejected ("Changing power
 management limit is not supported"); the unit ignores that and the
-`-lgc 210,1400` clock lock is what limits power. To tighten it, change the
-upper clock (e.g. `210,1200`) and `sudo systemctl restart nvidia-power-cap`.
+`-lgc 210,1000` clock lock is what limits power. At 1400 MHz it never engaged:
+the 2026-10-16 training run peaked at 1245 MHz and sat at the 80 W board limit
+(avg 69 W) with the CPU at ~95 °C. To change it, edit the upper clock in
+`/etc/systemd/system/nvidia-power-cap.service` and
+`sudo systemctl daemon-reload && sudo systemctl restart nvidia-power-cap`.
 
 The hardware side (cleaning the fans/heatsink, re-pasting, a BIOS newer than
 GA503QR.416) still matters: the CPU idles around 75 °C.
