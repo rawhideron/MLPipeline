@@ -99,7 +99,7 @@ echo
 
 # 3. copy (old pods are gone, so the source is quiescent) + backup tar
 echo "copying $SRC:$SRC_PATH -> $DST (backup: $BACKUP_DIR/$PVC.tar)"
-docker exec "$SRC" tar --numeric-owner -C "$PARENT" -cpf - "$DIR" \
+docker exec "$SRC" tar --sparse --numeric-owner -C "$PARENT" -cpf - "$DIR" \
   | tee "$BACKUP_DIR/$PVC.tar" \
   | docker exec -i "$DST" sh -c "mkdir -p $PARENT/.incoming && tar --numeric-owner -C $PARENT/.incoming -xpf - && mv $PARENT/.incoming/$DIR $PARENT/ && rmdir $PARENT/.incoming"
 echo "src: $(docker exec "$SRC" du -s "$SRC_PATH" | cut -f1)K  dst: $(docker exec "$DST" du -s "$SRC_PATH" | cut -f1)K"
