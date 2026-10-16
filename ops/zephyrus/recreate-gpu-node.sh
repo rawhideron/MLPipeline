@@ -1,12 +1,25 @@
 #!/usr/bin/env bash
 # Recreate a kind node container with the NVIDIA device mount, keeping its
 # /var volume, hostname and IPs so Kubernetes sees the same node come back.
-# Usage: recreate-gpu-node.sh <node-name>
+# Usage: recreate-gpu-node.sh <node-name> [<new-ipv4> <new-ipv6>]
+#
+# Pass new IPs to move the node to a fixed address outside the low range
+# Docker hands out dynamically on the kind network (kind-registry and the
+# control plane get .2-.4 in whatever order they start at boot, and a stopped
+# container's fixed IP isn't reserved): the GPU workers use 172.18.200.x.
 set -euo pipefail
 N=$1
 VOL=$(docker inspect "$N" --format '{{range .Mounts}}{{if eq .Destination "/var"}}{{.Name}}{{end}}{{end}}')
-IP4=$(docker inspect "$N" --format '{{.NetworkSettings.Networks.kind.IPAddress}}')
-IP6=$(docker inspect "$N" --format '{{.NetworkSettings.Networks.kind.GlobalIPv6Address}}')
+# Configured (fixed) IPs are present even when the container isn't running.
+IP4=$(docker inspect "$N" --format '{{with .NetworkSettings.Networks.kind.IPAMConfig}}{{.IPv4Address}}{{end}}')
+IP6=$(docker inspect "$N" --format '{{with .NetworkSettings.Networks.kind.IPAMConfig}}{{.IPv6Address}}{{end}}')
+[[ -n $IP4 ]] || IP4=$(docker inspect "$N" --format '{{.NetworkSettings.Networks.kind.IPAddress}}')
+[[ -n $IP6 ]] || IP6=$(docker inspect "$N" --format '{{.NetworkSettings.Networks.kind.GlobalIPv6Address}}')
+if [[ $# -ge 3 ]]; then
+  echo "changing $N address: $IP4/$IP6 -> $2/$3"
+  IP4=$2 IP6=$3
+  CHANGE_IP=1
+fi
 IMG="reunion-node-gpu:${N#reunion-}"
 # Host directory shared by both GPU nodes (models volume lives under it)
 SHARED=/home/ron-goodman/mlpipeline-shared
@@ -32,6 +45,13 @@ else
   docker commit "$N" "$IMG" >/dev/null
   docker rename "$N" "$N-old"
   docker update --restart=no "$N-old" >/dev/null
+fi
+
+# The kubelet registers the node with --node-ip; point it at the new address.
+if [[ ${CHANGE_IP:-0} == 1 ]]; then
+  docker run --rm --entrypoint sed -v "$VOL":/var "$IMG" \
+    -i "s/--node-ip=[^ \"]*/--node-ip=$IP4/" /var/lib/kubelet/kubeadm-flags.env
+  docker run --rm --entrypoint cat -v "$VOL":/var "$IMG" /var/lib/kubelet/kubeadm-flags.env
 fi
 
 # --runtime=nvidia: snap docker resets daemon.json on refresh/boot, dropping
