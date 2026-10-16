@@ -5,7 +5,7 @@ manage. Apply them directly with `kubectl`/`docker` from the Zephyrus host.
 
 | File | What it does |
 | ---- | ------------ |
-| `recreate-gpu-node.sh <node>` | Recreates a kind node container with `--runtime=nvidia`, the NVIDIA device mount and the shared `/mnt/shared` mount, keeping its `/var` volume, hostname and IPs. The first run keeps the original as `<node>-old` for rollback. |
+| `recreate-gpu-node.sh <node> [<ipv4> <ipv6>]` | Recreates a kind node container with `--runtime=nvidia`, the NVIDIA device mount and the shared `/mnt/shared` mount, keeping its `/var` volume and hostname. Keeps its fixed IPs, or moves it to the ones given (also updating the kubelet's `--node-ip`). The first run keeps the original as `<node>-old` for rollback. |
 | `gpu-node-labels.sh` | Labels `reunion-worker` (GPU primary) and `reunion-worker2` (GPU secondary) as the GPU pool; removes GPU labels from every other node. |
 | `gpu-exclusive-policy.yaml` | ValidatingAdmissionPolicy: only one GPU pod at a time, cluster-wide. |
 | `models-shared-pv.yaml` | Static ReadWriteMany PV on `/mnt/shared/models` for `mlpipeline-serving-models`, usable from either GPU node. |
@@ -101,3 +101,18 @@ upper clock (e.g. `210,1200`) and `sudo systemctl restart nvidia-power-cap`.
 
 The hardware side (cleaning the fans/heatsink, re-pasting, a BIOS newer than
 GA503QR.416) still matters: the CPU idles around 75 °C.
+
+## Fixed node IPs
+
+Docker assigns kind-network addresses in start order, and a stopped container's
+fixed IP isn't reserved: after a reboot `kind-registry` took 172.18.0.3 and
+`reunion-worker` failed to start ("Address already in use"). The GPU workers
+therefore live at fixed addresses far above the dynamic range:
+
+```bash
+bash ops/zephyrus/recreate-gpu-node.sh reunion-worker  172.18.200.3 fc00:f853:ccd:e793::200:3
+bash ops/zephyrus/recreate-gpu-node.sh reunion-worker2 172.18.200.5 fc00:f853:ccd:e793::200:5
+```
+
+The control plane and `kind-registry` stay dynamic; `rag-forward` resolves node
+IPs by container name, and metrics-server uses `--kubelet-insecure-tls`.
