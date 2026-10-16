@@ -371,11 +371,13 @@ class TestSentimentTrainerMethods:
             ) as mock_trainer_cls,
             patch("src.models.training.mlflow", mock_mlflow),
             patch("pathlib.Path.mkdir"),
+            patch("src.models.training.make_world_readable") as mock_readable,
         ):
             result = trainer.train()
 
         assert result == {"train_loss": 0.42, "status": "completed"}
         mock_hf_trainer.train.assert_called_once()
+        mock_readable.assert_called_once_with(trainer.config["output"]["model_path"])
 
         # Extract and verify the compute_metrics closure passed to Trainer
         compute_metrics = mock_trainer_cls.call_args[1]["compute_metrics"]
@@ -386,3 +388,17 @@ class TestSentimentTrainerMethods:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+    def test_make_world_readable_opens_private_files(self, tmp_path):
+        from src.models.training import make_world_readable
+
+        sub = tmp_path / "checkpoint-1"
+        sub.mkdir(mode=0o700)
+        model_file = sub / "model.safetensors"
+        model_file.write_bytes(b"x")
+        model_file.chmod(0o600)
+
+        make_world_readable(str(tmp_path))
+
+        assert model_file.stat().st_mode & 0o777 == 0o644
+        assert sub.stat().st_mode & 0o777 == 0o755
