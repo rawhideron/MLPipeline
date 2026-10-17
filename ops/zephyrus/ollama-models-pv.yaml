@@ -1,0 +1,33 @@
+# Static volume for the ragpipeline Ollama models (rag/ollama), shared by both
+# GPU-pool nodes the same way as models-shared-pv.yaml: the host directory
+# /home/ron-goodman/mlpipeline-shared/ollama is visible in reunion-worker and
+# reunion-worker2 at /mnt/shared/ollama, so Ollama can fail over between them
+# without re-pulling. It is mounted at /root/.ollama in the pod.
+#
+# Pre-bound to the ragpipeline PVC rag/ollama-models. Applied directly -- the
+# ragpipeline-project AppProject does not whitelist PersistentVolumes:
+#   mkdir -p /home/ron-goodman/mlpipeline-shared/ollama
+#   kubectl apply -f ops/zephyrus/ollama-models-pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ollama-models-shared
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  claimRef:
+    namespace: rag
+    name: ollama-models
+  hostPath:
+    path: /mnt/shared/ollama
+    type: Directory
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: mlpipeline.io/gpu-pool
+              operator: Exists

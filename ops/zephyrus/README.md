@@ -9,6 +9,7 @@ manage. Apply them directly with `kubectl`/`docker` from the Zephyrus host.
 | `gpu-node-labels.sh` | Labels `reunion-worker` (GPU primary) and `reunion-worker2` (GPU secondary) as the GPU pool; removes GPU labels from every other node. |
 | `gpu-exclusive-policy.yaml` | ValidatingAdmissionPolicy: only one GPU pod at a time, cluster-wide. |
 | `models-shared-pv.yaml` | Static ReadWriteMany PV on `/mnt/shared/models` for `mlpipeline-serving-models`, usable from either GPU node. |
+| `ollama-models-pv.yaml` | Static ReadWriteMany PV on `/mnt/shared/ollama` for the ragpipeline Ollama (`rag/ollama-models`), usable from either GPU node. |
 
 ## Moving the models volume to shared storage
 
@@ -45,6 +46,28 @@ the old PVC has to be deleted once while ArgoCD recreates it.
 
 Rollback: revert the chart change, delete the new PVC, and recreate the old one
 with `volumeName: <old-pv>` and `storageClassName: standard`.
+
+## Sharing the GPU with the ragpipeline Ollama
+
+`rag/ollama` (ragpipeline repo, `k8s/176/05-ollama.yaml`) is a long-running GPU
+pod under the same `gpu-exclusive` policy, so it holds the GPU between training
+runs. The `mlpipeline_training` DAG hands the GPU over:
+`pause_rag_ollama` scales it to 0 and waits for the pod to go before
+`train_model`, and `resume_rag_ollama` (trigger rule `all_done`) restores the
+previous replica count afterwards. The RAG site has no LLM for those ~10
+minutes. The `rag` Role allowing `mlpipeline/airflow` to do this is in the
+ragpipeline repo (`k8s/176/06-ollama-gpu-handoff-rbac.yaml`).
+
+Setup, once: seed the models so the pod does not re-pull them, then apply the PV.
+
+```bash
+mkdir -p ~/mlpipeline-shared/ollama
+cp -r /usr/share/ollama/.ollama/models ~/mlpipeline-shared/ollama/
+kubectl apply -f ops/zephyrus/ollama-models-pv.yaml
+```
+
+If training ever fails with Ollama still down, scale it back by hand:
+`kubectl -n rag scale deploy/ollama --replicas=1`.
 
 ## Retiring reunion-worker3 and reunion-worker4
 
