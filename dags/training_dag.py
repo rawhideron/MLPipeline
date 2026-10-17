@@ -5,11 +5,13 @@ This DAG orchestrates the following steps:
 1. Data validation - verifies IMDB dataset is accessible from HuggingFace Hub
 2. Data preprocessing - runs text cleaning on a sample batch to verify the pipeline
 3. Model training - fine-tunes distilbert-base-uncased on IMDB sentiment data
+   (the ragpipeline Ollama server is scaled to 0 around it to free the GPU)
 4. Model evaluation - loads and verifies the trained model
 5. Pipeline completion log
 """
 
 import logging
+import time
 from datetime import UTC, datetime, timedelta
 
 import yaml
@@ -129,6 +131,65 @@ def _gpu_tolerations():
         )
         for key in ("node.kubernetes.io/not-ready", "node.kubernetes.io/unreachable")
     ]
+
+
+# The ragpipeline Ollama server (rag/ollama) is a long-running GPU pod under the
+# same gpu-exclusive policy, so train_model would stay Pending behind it. Scale
+# it to 0 for training and restore it afterwards (RBAC lives in the ragpipeline
+# repo, k8s/176/06-ollama-gpu-handoff-rbac.yaml).
+RAG_NAMESPACE = "rag"
+OLLAMA_DEPLOYMENT = "ollama"
+OLLAMA_REPLICAS_XCOM = "ollama_replicas"
+OLLAMA_RELEASE_TIMEOUT = 180
+
+
+def _rag_clients():
+    from kubernetes import client, config
+
+    config.load_incluster_config()
+    return client.AppsV1Api(), client.CoreV1Api()
+
+
+def pause_rag_ollama(ti):
+    from kubernetes.client.rest import ApiException
+
+    apps, core = _rag_clients()
+    try:
+        scale = apps.read_namespaced_deployment_scale(OLLAMA_DEPLOYMENT, RAG_NAMESPACE)
+    except ApiException as e:
+        if e.status == 404:
+            logger.info(
+                "No %s/%s deployment; nothing to pause",
+                RAG_NAMESPACE,
+                OLLAMA_DEPLOYMENT,
+            )
+            return
+        raise
+    # Record before scaling so resume restores it even if the wait below fails.
+    ti.xcom_push(key=OLLAMA_REPLICAS_XCOM, value=scale.spec.replicas or 0)
+    apps.patch_namespaced_deployment_scale(
+        OLLAMA_DEPLOYMENT, RAG_NAMESPACE, {"spec": {"replicas": 0}}
+    )
+    deadline = time.monotonic() + OLLAMA_RELEASE_TIMEOUT
+    while core.list_namespaced_pod(RAG_NAMESPACE, label_selector="app=ollama").items:
+        if time.monotonic() > deadline:
+            raise TimeoutError(
+                f"Ollama pods still present after {OLLAMA_RELEASE_TIMEOUT}s"
+            )
+        time.sleep(5)
+    logger.info("Ollama scaled from %s to 0; GPU released", scale.spec.replicas)
+
+
+def resume_rag_ollama(ti):
+    replicas = ti.xcom_pull(task_ids="pause_rag_ollama", key=OLLAMA_REPLICAS_XCOM)
+    if not replicas:
+        logger.info("Ollama was not running before training; leaving it scaled down")
+        return
+    apps, _ = _rag_clients()
+    apps.patch_namespaced_deployment_scale(
+        OLLAMA_DEPLOYMENT, RAG_NAMESPACE, {"spec": {"replicas": replicas}}
+    )
+    logger.info("Ollama scaled back to %s", replicas)
 
 
 def log_pipeline_start():
@@ -260,6 +321,23 @@ def log_pipeline_complete():
     logger.info("Training pipeline completed successfully")
 
 
+pause_rag_ollama_task = PythonOperator(
+    task_id="pause_rag_ollama",
+    python_callable=pause_rag_ollama,
+    # A retry would record the already-paused replica count (0) and resume
+    # would then leave Ollama down.
+    retries=0,
+    dag=dag,
+)
+
+# all_done: give the GPU back to Ollama whether or not training succeeded.
+resume_rag_ollama_task = PythonOperator(
+    task_id="resume_rag_ollama",
+    python_callable=resume_rag_ollama,
+    trigger_rule="all_done",
+    dag=dag,
+)
+
 log_completion_task = PythonOperator(
     task_id="log_pipeline_complete",
     python_callable=log_pipeline_complete,
@@ -278,8 +356,10 @@ trigger_inference_task = TriggerDagRunOperator(
     log_start_task
     >> data_validation_task
     >> preprocessing_task
+    >> pause_rag_ollama_task
     >> training_task
     >> evaluation_task
     >> log_completion_task
     >> trigger_inference_task
 )
+training_task >> resume_rag_ollama_task
