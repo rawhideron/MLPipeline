@@ -23,6 +23,7 @@ spec:
     requests:
       storage: {{ .Values.persistentVolume.dags.size }}
   storageClassName: {{ .Values.persistentVolume.storageClassName | quote }}
+{{- if .Values.persistentVolume.models.enabled }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -36,3 +37,4 @@ spec:
     requests:
       storage: {{ .Values.persistentVolume.models.size }}
   storageClassName: {{ .Values.persistentVolume.storageClassName | quote }}
+{{- end }}

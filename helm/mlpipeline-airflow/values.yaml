@@ -115,8 +115,11 @@ persistentVolume:
     size: 20Gi
     mountPath: /data
   
+  # Nothing mounts this: training/serving use mlpipeline-serving-models. Left
+  # enabled, the claim sits Pending (WaitForFirstConsumer) and ArgoCD reports
+  # mlpipeline-airflow-178 as Progressing forever.
   models:
-    enabled: true
+    enabled: false
     size: 10Gi
     mountPath: /models
 

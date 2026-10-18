@@ -6,6 +6,10 @@ metadata:
   labels:
     app.kubernetes.io/name: mlpipeline
     app.kubernetes.io/component: etl
+  annotations:
+    # Bind now instead of at first consumer: only the paused gdp_etl DAG mounts
+    # this claim, and a Pending PVC keeps mlpipeline-backend-178 Progressing.
+    volume.kubernetes.io/selected-node: reunion-worker2
 spec:
   accessModes:
     - ReadWriteOnce
