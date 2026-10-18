@@ -5,7 +5,7 @@ manage. Apply them directly with `kubectl`/`docker` from the Zephyrus host.
 
 | File | What it does |
 | ---- | ------------ |
-| `recreate-gpu-node.sh <node> [<ipv4> <ipv6>]` | Recreates a kind node container with `--runtime=nvidia`, the NVIDIA device mount and the shared `/mnt/shared` mount, keeping its `/var` volume and hostname. Keeps its fixed IPs, or moves it to the ones given (also updating the kubelet's `--node-ip`). The first run keeps the original as `<node>-old` for rollback. |
+| `recreate-gpu-node.sh <node> [<ipv4> <ipv6>]` | Recreates a kind node container with `--runtime=nvidia`, the NVIDIA device mount and the shared `/mnt/shared` mount, keeping its `/var` volume and hostname. Keeps its fixed IPs, or moves it to the ones given (also updating the kubelet's `--node-ip`). The first run keeps the original as `<node>-old` for rollback; it shares the live node's `/var` volume, so remove it with plain `docker rm` (never `-v` or `docker volume rm`). |
 | `gpu-node-labels.sh` | Labels `reunion-worker` (GPU primary) and `reunion-worker2` (GPU secondary) as the GPU pool; removes GPU labels from every other node. |
 | `gpu-exclusive-policy.yaml` | ValidatingAdmissionPolicy: only one GPU pod at a time, cluster-wide. |
 | `models-shared-pv.yaml` | Static ReadWriteMany PV on `/mnt/shared/models` for `mlpipeline-serving-models`, usable from either GPU node. |
@@ -93,8 +93,10 @@ bash ops/zephyrus/retire-nodes.sh remove
 StatefulSet; if it doesn't reappear within a few minutes, run
 `argocd app sync ragpipeline-workloads` on pop-os.
 
-`remove` keeps the stopped containers and their `/var` volumes. Rollback:
-`docker start <node>` (the kubelet re-registers it), then `kubectl uncordon <node>`.
+`remove` keeps the stopped containers and their `/var` volumes for rollback
+(`docker start <node>`, then `kubectl uncordon <node>`). Done 2026-10-18: both
+containers and their `/var` volumes are deleted, so this rollback is gone; the
+PVC tarballs in `~/k8s-node-retire-backup-20261015/` remain.
 
 ## Host: GPU power cap
 
