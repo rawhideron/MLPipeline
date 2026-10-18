@@ -171,10 +171,17 @@ def pause_rag_ollama(ti):
         OLLAMA_DEPLOYMENT, RAG_NAMESPACE, {"spec": {"replicas": 0}}
     )
     deadline = time.monotonic() + OLLAMA_RELEASE_TIMEOUT
-    while core.list_namespaced_pod(RAG_NAMESPACE, label_selector="app=ollama").items:
+    # Finished pods hold no GPU but linger as objects, e.g. one the kubelet
+    # rejected with UnexpectedAdmissionError after a node restart; skip them.
+    while pods := core.list_namespaced_pod(
+        RAG_NAMESPACE,
+        label_selector="app=ollama",
+        field_selector="status.phase!=Failed,status.phase!=Succeeded",
+    ).items:
         if time.monotonic() > deadline:
+            names = ", ".join(pod.metadata.name for pod in pods)
             raise TimeoutError(
-                f"Ollama pods still present after {OLLAMA_RELEASE_TIMEOUT}s"
+                f"Ollama pods still present after {OLLAMA_RELEASE_TIMEOUT}s: {names}"
             )
         time.sleep(5)
     logger.info("Ollama scaled from %s to 0; GPU released", scale.spec.replicas)
