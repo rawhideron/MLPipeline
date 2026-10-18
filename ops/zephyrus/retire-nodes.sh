@@ -5,6 +5,7 @@
 #   drain   evict the remaining pods (after every PV has been moved)
 #   remove  delete the Node objects and stop the containers; the containers
 #           and their /var volumes are kept for rollback (docker start + uncordon)
+# Completed 2026-10-18: both containers and their /var volumes have been deleted.
 set -euo pipefail
 NODES=(reunion-worker3 reunion-worker4)
 
