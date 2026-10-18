@@ -98,14 +98,20 @@ StatefulSet; if it doesn't reappear within a few minutes, run
 
 ## Host: GPU power cap
 
-Sustained full-power GPU load (80–98 W) triggers an ASUS EC power cut about
-3 minutes in. Cap clocks at boot, turn off Dynamic Boost, and disable runtime
-D3 (the GSP firmware crashed resuming from it):
+Sustained heavy load triggers an ASUS EC power cut (a hard reset with nothing
+in the journal) about 3–5 minutes in. Cap GPU clocks at boot, turn off CPU
+boost and Dynamic Boost, and disable runtime D3 (the GSP firmware crashed
+resuming from it):
 
 ```bash
 sudo cp ops/zephyrus/host/nvidia-power-cap.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now nvidia-power-cap.service
 systemctl status nvidia-power-cap.service --no-pager
+
+# CPU boost off at every boot
+sudo cp ops/zephyrus/host/zephyrus-cpu-boost.conf /etc/tmpfiles.d/
+sudo systemd-tmpfiles --create /etc/tmpfiles.d/zephyrus-cpu-boost.conf
+cat /sys/devices/system/cpu/cpufreq/boost   # 0
 
 # Dynamic Boost lets the GPU draw past its 80 W default (97 W seen before a reset)
 sudo systemctl disable --now nvidia-powerd
@@ -119,9 +125,14 @@ sudo update-initramfs -u                    # takes effect after the next reboot
 
 On this RTX 3070 Laptop GPU `nvidia-smi -pl` is rejected ("Changing power
 management limit is not supported"); the unit ignores that and the
-`-lgc 210,1000` clock lock is what limits power. At 1400 MHz it never engaged:
+`-lgc 210,750` clock lock is what limits power. At 1400 MHz it never engaged:
 the 2026-10-16 training run peaked at 1245 MHz and sat at the 80 W board limit
-(avg 69 W) with the CPU at ~95 °C. To change it, edit the upper clock in
+(avg 69 W) with the CPU at ~95 °C. At 1000 MHz training drew a steady 67 W and
+the host still reset ~4 minutes into `train_model` twice on 2026-10-17 (CPU at
+83 °C); a third reset that day came with the rag Ollama on the GPU at only 23 W
+but the CPU at 95 °C and RAM nearly exhausted. At 750 MHz with CPU boost off,
+a full fp16 matmul burn holds at 40 W / 60 °C GPU. To change it, edit the
+upper clock in
 `/etc/systemd/system/nvidia-power-cap.service` and
 `sudo systemctl daemon-reload && sudo systemctl restart nvidia-power-cap`.
 
