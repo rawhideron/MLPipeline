@@ -114,8 +114,8 @@ async def predict(request: PredictionRequest, token: TokenDep):
             confidence=result["confidence"],
             probabilities=result["probabilities"],
         )
-    except Exception as e:  # noqa: BLE001 -- convert any prediction failure to a 500
-        logger.error("Prediction error: %s", e)
+    except Exception:  # convert any prediction failure to a 500
+        logger.exception("Prediction error")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Prediction failed",
@@ -148,8 +148,8 @@ async def predict_batch(request: BatchPredictionRequest, token: TokenDep):
     try:
         results = inference_handler.predict_batch(request.texts)
         return {"predictions": results}
-    except Exception as e:  # noqa: BLE001 -- convert any batch prediction failure to a 500
-        logger.error("Batch prediction error: %s", e)
+    except Exception:  # convert any batch prediction failure to a 500
+        logger.exception("Batch prediction error")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Batch prediction failed",
