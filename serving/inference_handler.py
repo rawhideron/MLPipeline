@@ -29,8 +29,8 @@ class InferenceHandler:
             self.ready = True
             logger.info(f"Model loaded successfully from {model_path}")
         # Any load failure should mark not-ready, not crash.
-        except Exception as e:  # noqa: BLE001
-            logger.error(f"Failed to load model: {e!s}")
+        except Exception:
+            logger.exception("Failed to load model")
             self.ready = False
 
     def is_ready(self) -> bool:

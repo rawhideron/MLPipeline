@@ -1,0 +1,43 @@
+# Config the Zephyrus kind cluster (`reunion`) was created from:
+#   kind create cluster --config ops/zephyrus/kind-config.yaml
+# The live cluster has since diverged: reunion-worker3/4 were retired
+# (retire-nodes.sh), and reunion-worker/worker2 were recreated as GPU nodes
+# with --runtime=nvidia, the /mnt/shared mount and fixed 172.18.200.x IPs
+# (recreate-gpu-node.sh, gpu-node-labels.sh). Rebuilding means this file
+# followed by those scripts.
+#
+# There are no host port mappings: the reunion cluster on 230 reaches this one
+# through rag-forward.py on the host (18000 -> control-plane NodePort 30717).
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: reunion
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."kind-registry:5000"]
+      endpoint = ["http://kind-registry:5000"]
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.35.1@sha256:05d7bcdefbda08b4e038f644c4df690cdac3fba8b06f8289f30e10026720a1ab
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+  - role: worker
+    image: kindest/node:v1.35.1@sha256:05d7bcdefbda08b4e038f644c4df690cdac3fba8b06f8289f30e10026720a1ab
+  - role: worker
+    image: kindest/node:v1.35.1@sha256:05d7bcdefbda08b4e038f644c4df690cdac3fba8b06f8289f30e10026720a1ab
+  - role: worker
+    image: kindest/node:v1.35.1@sha256:05d7bcdefbda08b4e038f644c4df690cdac3fba8b06f8289f30e10026720a1ab
+  - role: worker
+    image: kindest/node:v1.35.1@sha256:05d7bcdefbda08b4e038f644c4df690cdac3fba8b06f8289f30e10026720a1ab
+    kubeadmConfigPatches:
+      - |
+        kind: JoinConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "nvidia.com/gpu.present=true"
+    extraMounts:
+      - hostPath: /dev/null
+        containerPath: /var/run/nvidia-container-devices/all
