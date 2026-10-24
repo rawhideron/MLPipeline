@@ -44,7 +44,8 @@ class TestModelTraining:
 
         trainer = SentimentTrainer("configs/training_config.yaml")
         dataset_name = trainer.config["data"]["dataset"]
-        assert isinstance(dataset_name, str) and len(dataset_name) > 0
+        assert isinstance(dataset_name, str)
+        assert len(dataset_name) > 0
 
         val_test_mock = MagicMock()
         val_test_mock.train_test_split.return_value = {

@@ -68,8 +68,8 @@ class KeycloakOAuth:
                     "Successfully fetched Keycloak public key (kid=%s)",
                     key_data.get("kid"),
                 )
-        except Exception as e:  # noqa: BLE001 -- log and continue with no cached key
-            logger.error("Failed to fetch Keycloak public key: %s", e)
+        except Exception:  # log and continue with no cached key
+            logger.exception("Failed to fetch Keycloak public key")
 
     def verify_token(self, token: str) -> dict:
         """
@@ -112,8 +112,8 @@ class KeycloakOAuth:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
             )
-        except Exception as e:  # noqa: BLE001 -- any other verification failure is unauthorized
-            logger.error("Token verification error: %s", e)
+        except Exception:  # any other verification failure is unauthorized
+            logger.exception("Token verification error")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
             )
