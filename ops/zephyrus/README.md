@@ -5,6 +5,7 @@ manage. Apply them directly with `kubectl`/`docker` from the Zephyrus host.
 
 | File | What it does |
 | ---- | ------------ |
+| `kind-config.yaml` | The config the cluster was created from (`kind create cluster --config`). The live cluster has since diverged: worker3/4 retired and worker/worker2 recreated as GPU nodes by the scripts below. |
 | `recreate-gpu-node.sh <node> [<ipv4> <ipv6>]` | Recreates a kind node container with `--runtime=nvidia`, the NVIDIA device mount and the shared `/mnt/shared` mount, keeping its `/var` volume and hostname. Keeps its fixed IPs, or moves it to the ones given (also updating the kubelet's `--node-ip`). The first run keeps the original as `<node>-old` for rollback; it shares the live node's `/var` volume, so remove it with plain `docker rm` (never `-v` or `docker volume rm`). |
 | `gpu-node-labels.sh` | Labels `reunion-worker` (GPU primary) and `reunion-worker2` (GPU secondary) as the GPU pool; removes GPU labels from every other node. |
 | `gpu-exclusive-policy.yaml` | ValidatingAdmissionPolicy: only one GPU pod at a time, cluster-wide. |
