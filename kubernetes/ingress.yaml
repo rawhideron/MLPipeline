@@ -1,86 +1,7 @@
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: mlpipeline-ingress
-  namespace: mlpipeline
-  labels:
-    app.kubernetes.io/name: mlpipeline
-    app.kubernetes.io/component: ingress
-  annotations:
-    cert-manager.io/cluster-issuer: "reunion-letsencrypt"
-    nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.mlpipeline.svc.cluster.local:4180/oauth2/auth"
-    nginx.ingress.kubernetes.io/auth-signin: "https://mlpipeline.duckdns.org/oauth2/start?rd=$escaped_request_uri"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-spec:
-  ingressClassName: nginx
-  tls:
-    - hosts:
-        - mlpipeline.duckdns.org
-      secretName: mlpipeline-tls
-  rules:
-    - host: mlpipeline.duckdns.org
-      http:
-        paths:
-          - path: /api(/|$)(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: mlpipeline-backend-178
-                port:
-                  number: 80
----
-# Unauthenticated ingress for health check only
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: mlpipeline-ingress-public
-  namespace: mlpipeline
-  labels:
-    app.kubernetes.io/name: mlpipeline
-    app.kubernetes.io/component: ingress
-  annotations:
-    cert-manager.io/cluster-issuer: "reunion-letsencrypt"
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/proxy-buffer-size: "16k"
-    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
-spec:
-  ingressClassName: nginx
-  tls:
-    - hosts:
-        - mlpipeline.duckdns.org
-      secretName: mlpipeline-tls
-  rules:
-    - host: mlpipeline.duckdns.org
-      http:
-        paths:
-          - path: /airflow
-            pathType: Prefix
-            backend:
-              service:
-                name: mlpipeline-backend-178
-                port:
-                  number: 80
-          - path: /oauth2
-            pathType: Prefix
-            backend:
-              service:
-                name: oauth2-proxy
-                port:
-                  number: 4180
-          - path: /health
-            pathType: Exact
-            backend:
-              service:
-                name: mlpipeline-backend-178
-                port:
-                  number: 80
----
-# Envoy Gateway replacements for the two Ingresses above (goodman_reunion
-# #764). They carry traffic only after that migration's cutover on 230;
-# until then the nginx Ingresses serve. Fields the API server would default
-# are written out so ArgoCD doesn't report them OutOfSync.
+# Edge routing for mlpipeline.duckdns.org on 230's Envoy Gateway
+# (reunion-gateway, listener https-mlpipeline), which replaced ingress-nginx
+# and oauth2-proxy in goodman_reunion #764. Fields the API server would
+# default are written out so ArgoCD doesn't report them OutOfSync.
 #
 # Protected: /api (rewritten to /, like rewrite-target /$2) and /oauth2,
 # whose /oauth2/callback and /oauth2/sign_out Envoy's OIDC filter handles
@@ -240,8 +161,8 @@ spec:
       streamIdleTimeout: 1h
 ---
 # Backend on the Zephyrus kind cluster, reached through the rag-forward relay
-# (192.168.1.178:18000 -> kind ingress-nginx NodePort 30717). That ingress
-# routes /airflow to the webserver and everything else to serving; see
+# (192.168.1.178:18000 -> Envoy Gateway backup-gateway NodePort 30718). Its
+# HTTPRoute sends /airflow to the webserver and everything else to serving; see
 # kubernetes/zephyrus/ingress.yaml. Same pattern as rag/rag-frontend-176.
 apiVersion: v1
 kind: Service
