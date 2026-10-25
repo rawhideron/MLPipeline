@@ -7,7 +7,8 @@
 # followed by those scripts.
 #
 # There are no host port mappings: the reunion cluster on 230 reaches this one
-# through rag-forward.py on the host (18000 -> control-plane NodePort 30717).
+# through rag-forward.py on the host (18000 -> control-plane NodePort 30718,
+# Envoy Gateway's backup-gateway).
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: reunion
