@@ -23,17 +23,17 @@ cd serving && uvicorn app:app --reload   # runs on :8000
 # Kubernetes (backend runs on the Zephyrus kind cluster, 192.168.1.178)
 ssh ron-goodman@192.168.1.178 'kubectl get pods -n mlpipeline'
 ssh ron-goodman@192.168.1.178 'kubectl logs -n mlpipeline -f deploy/mlpipeline-airflow-scheduler -c scheduler'
-kubectl get pods -n mlpipeline            # reunion: edge only (oauth2-proxy)
+kubectl get httproute,securitypolicy -n mlpipeline   # reunion: edge only (Envoy Gateway)
 ```
 
 ## Architecture
 
 This is an end-to-end NLP sentiment classification pipeline split across two kind clusters, both named `reunion`:
 
-- **reunion on pop-os (192.168.1.230)** — the public edge: `mlpipeline.duckdns.org` ingress, TLS, oauth2-proxy, Keycloak, and the ArgoCD instance that manages both clusters.
+- **reunion on pop-os (192.168.1.230)** — the public edge: `mlpipeline.duckdns.org` on Envoy Gateway (TLS, native OIDC), Keycloak, and the ArgoCD instance that manages both clusters.
 - **reunion on Zephyrus (192.168.1.178 / .176)** — the backend: Airflow, serving, both PostgreSQL databases and all PVCs. Registered in ArgoCD as `https://192.168.1.176:16443`.
 
-The edge ingress routes `/api`, `/airflow` and `/health` to the selector-less Service `mlpipeline-backend-178` (Endpoints `192.168.1.178:18000`). On Zephyrus, the `rag-forward` systemd relay forwards `:18000` to the kind ingress NodePort and `:16443` to the kind API (port 80/443 there are taken by k3s Traefik).
+The edge HTTPRoutes (`kubernetes/ingress.yaml`) send `/api`, `/airflow` and `/health` to the selector-less Service `mlpipeline-backend-178` (Endpoints `192.168.1.178:18000`). On Zephyrus, the `rag-forward` systemd relay forwards `:18000` to Envoy Gateway's `backup-gateway` NodePort 30718 and `:16443` to the kind API (port 80/443 there are taken by k3s Traefik).
 
 **Data flow**: Raw text → `src/preprocessing/text_cleaning.py` → HuggingFace `datasets` → `src/models/training.py` (fine-tunes `distilbert-base-uncased`) → `/models/trained_model` (PV) → `serving/app.py` (FastAPI)
 
@@ -41,7 +41,7 @@ The edge ingress routes `/api`, `/airflow` and `/health` to the selector-less Se
 
 **Authentication**: All endpoints except `/health` require a Keycloak JWT. `serving/oauth_middleware.py` fetches the JWKS from Keycloak, verifies RS256 tokens, and exposes a `verify_token` FastAPI dependency. Environment variables `KEYCLOAK_REALM_URL`, `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET` configure the connection.
 
-**Deployment**: Helm charts under `helm/` deploy Airflow, FastAPI serving, and PostgreSQL to Zephyrus via `argocd/mlpipeline-178.yaml`; reunion runs only oauth2-proxy and the edge manifests (`argocd/mlpipeline-app.yaml`, `argocd/mlpipeline-appset.yaml`). The ingress at `mlpipeline.duckdns.org` uses nginx + cert-manager for TLS and oauth2-proxy for route-level auth.
+**Deployment**: Helm charts under `helm/` deploy Airflow, FastAPI serving, and PostgreSQL to Zephyrus via `argocd/mlpipeline-178.yaml`; reunion runs only the edge manifests (`argocd/mlpipeline-app.yaml`). `mlpipeline.duckdns.org` is served by goodman_reunion's Envoy Gateway (`reunion-gateway`, which also holds its TLS certificate). Route-level auth is the `mlpipeline-oidc` SecurityPolicy (Envoy Gateway native OIDC + JWT) in `kubernetes/ingress.yaml`, reusing the Keycloak client `oauth2-proxy` and the secret `oauth2-proxy-secrets` (keep both).
 
 **Config**: `configs/training_config.yaml` controls model name, epochs, batch size, learning rate, and dataset paths. `configs/inference_config.yaml` controls serving parameters. These are mounted into pods via ConfigMap.
 
@@ -92,7 +92,7 @@ Two workflows run automatically:
 Apply both manifests to register the apps with ArgoCD:
 
 ```bash
-# Reunion: AppProject, edge manifests app, oauth2-proxy ApplicationSet
+# Reunion: AppProject, edge manifests app, notification triggers
 # (apply together, appset first: both files carry an argocd-notifications-cm)
 kubectl apply -f argocd/mlpipeline-appset.yaml -f argocd/mlpipeline-app.yaml
 
@@ -103,7 +103,7 @@ kubectl apply -f argocd/mlpipeline-178.yaml
 argocd app sync mlpipeline
 ```
 
-The `mlpipeline` app syncs only `kubernetes/ingress.yaml` and `namespace.yaml` to reunion. `mlpipeline-backend-178` syncs the rest of `kubernetes/` (plus `kubernetes/zephyrus/`) to Zephyrus. `mlpipeline-components` (reunion) has only oauth2proxy; `mlpipeline-components-178` deploys `helm/mlpipeline-{postgres,airflow,serving}` to Zephyrus. Files under `argocd/` are applied manually — merging them changes nothing until applied.
+The `mlpipeline` app syncs only `kubernetes/ingress.yaml` and `namespace.yaml` to reunion. `mlpipeline-backend-178` syncs the rest of `kubernetes/` (plus `kubernetes/zephyrus/`) to Zephyrus. `mlpipeline-components-178` deploys `helm/mlpipeline-{postgres,airflow,serving}` to Zephyrus. Files under `argocd/` are applied manually — merging them changes nothing until applied.
 
 ## Branch & PR Workflow
 

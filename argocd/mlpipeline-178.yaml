@@ -1,7 +1,7 @@
 # MLPipeline backend on the Zephyrus kind cluster (192.168.1.178 / .176)
 #
 # Parallel deploy for the backend migration: postgres, airflow and serving run
-# on the remote cluster while the public edge (ingress, TLS, oauth2-proxy) stays
+# on the remote cluster while the public edge (Envoy Gateway route, TLS, OIDC) stays
 # on this cluster. Same pattern as ragpipeline (rag-frontend-176).
 #
 # The remote cluster is registered in ArgoCD as "reunion-176" and reached via
