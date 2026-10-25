@@ -30,7 +30,8 @@ spec:
     path: kubernetes
     # Edge only (ingress + Service/Endpoints to Zephyrus). Backend manifests
     # sync to Zephyrus via mlpipeline-backend-178. Keep namespace.yaml: pruning
-    # it would delete the namespace, oauth2-proxy and its secrets with it.
+    # it would delete the namespace and its secrets with it, including
+    # oauth2-proxy-secrets, whose client-secret Envoy Gateway's OIDC uses.
     directory:
       include: '{ingress.yaml,namespace.yaml}'
 

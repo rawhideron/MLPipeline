@@ -1,79 +1,11 @@
----
-# ApplicationSet for MLPipeline Components
-# Manages individual components: airflow, fastapi, postgres
-# This allows fine-grained control over each component
+# ArgoCD notification triggers for MLPipeline apps.
+#
+# This file used to also define the mlpipeline-components ApplicationSet for
+# the edge oauth2-proxy; that was retired when Envoy Gateway's native OIDC
+# replaced it (rawhideron/goodman_reunion#764).
 #
 # Install:
 #   kubectl apply -f argocd/mlpipeline-appset.yaml
-#
-# List applications:
-#   argocd app list | grep mlpipeline
-
-apiVersion: argoproj.io/v1alpha1
-kind: ApplicationSet
-metadata:
-  name: mlpipeline-components
-  namespace: argocd
-spec:
-  generators:
-  - list:
-      elements:
-      # Only the edge runs here; postgres, airflow and serving moved to the
-      # Zephyrus cluster (argocd/mlpipeline-178.yaml)
-      - name: oauth2proxy
-        helmChart: mlpipeline-oauth2proxy
-        syncWave: "2"
-
-  template:
-    metadata:
-      name: mlpipeline-{{name}}
-      annotations:
-        argocd.argoproj.io/sync-wave: "{{syncWave}}"
-      labels:
-        app.kubernetes.io/name: mlpipeline
-        app.kubernetes.io/component: "{{name}}"
-        argocd.argoproj.io/instance: mlpipeline
-
-    spec:
-      project: mlpipeline-project
-
-      source:
-        repoURL: https://github.com/rawhideron/MLPipeline
-        targetRevision: main
-        path: helm/{{helmChart}}
-
-        helm:
-          releaseName: mlpipeline-{{name}}
-          values: |
-            replicaCount: 1
-            namespace: mlpipeline
-            domain: mlpipeline.duckdns.org
-
-      destination:
-        server: https://kubernetes.default.svc
-        namespace: mlpipeline
-
-      ignoreDifferences:
-      - group: apps
-        kind: Deployment
-        jsonPointers:
-        - /metadata/annotations/field.cattle.io~1publicEndpoints
-        - /spec/replicas
-
-      syncPolicy:
-        automated:
-          prune: true
-          selfHeal: true
-        syncOptions:
-        - CreateNamespace=true
-
-        retry:
-          limit: 5
-          backoff:
-            duration: 5s
-            factor: 2
-            maxDuration: 3m
-
 ---
 # Notification trigger for component syncs
 apiVersion: v1
