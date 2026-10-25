@@ -77,6 +77,168 @@ spec:
                 port:
                   number: 80
 ---
+# Envoy Gateway replacements for the two Ingresses above (goodman_reunion
+# #764). They carry traffic only after that migration's cutover on 230;
+# until then the nginx Ingresses serve. Fields the API server would default
+# are written out so ArgoCD doesn't report them OutOfSync.
+#
+# Protected: /api (rewritten to /, like rewrite-target /$2) and /oauth2,
+# whose /oauth2/callback and /oauth2/sign_out Envoy's OIDC filter handles
+# itself. This replaces nginx auth-url + oauth2-proxy.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mlpipeline-protected
+  namespace: mlpipeline
+  labels:
+    app.kubernetes.io/name: mlpipeline
+    app.kubernetes.io/component: ingress
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: reunion-gateway
+      namespace: envoy-gateway-system
+      sectionName: https-mlpipeline
+  hostnames:
+    - mlpipeline.duckdns.org
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api
+      filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: mlpipeline-backend-178
+          port: 80
+          weight: 1
+      timeouts:
+        request: 0s
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /oauth2
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: mlpipeline-backend-178
+          port: 80
+          weight: 1
+      timeouts:
+        request: 0s
+---
+# Public, no auth: /airflow (Airflow does its own Keycloak SSO) and /health.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mlpipeline-public
+  namespace: mlpipeline
+  labels:
+    app.kubernetes.io/name: mlpipeline
+    app.kubernetes.io/component: ingress
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: reunion-gateway
+      namespace: envoy-gateway-system
+      sectionName: https-mlpipeline
+  hostnames:
+    - mlpipeline.duckdns.org
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /airflow
+        - path:
+            type: Exact
+            value: /health
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: mlpipeline-backend-178
+          port: 80
+          weight: 1
+      timeouts:
+        request: 0s
+---
+# Envoy Gateway's native OIDC, replacing oauth2-proxy. It reuses
+# oauth2-proxy's Keycloak client and secret (key client-secret) and keeps
+# its callback URL, so Keycloak needs no change. Both Keycloak endpoints
+# are the public URLs: an in-cluster plain-HTTP token endpoint breaks token
+# refresh with "Invalid token issuer" (#764, Phase 0 step 5, decision 8).
+#
+# Requests that already carry a bearer token (scripts, Airflow) skip the
+# browser login and are checked by the jwt provider instead, accepting the
+# same audiences oauth2-proxy does (its client ID, plus account). Browser
+# sessions have their access token forwarded as Authorization: Bearer.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: SecurityPolicy
+metadata:
+  name: mlpipeline-oidc
+  namespace: mlpipeline
+  labels:
+    app.kubernetes.io/name: mlpipeline
+    app.kubernetes.io/component: ingress
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: mlpipeline-protected
+  oidc:
+    provider:
+      issuer: https://goodmanreunion.duckdns.org/keycloak/realms/MLPipeline
+      authorizationEndpoint: https://goodmanreunion.duckdns.org/keycloak/realms/MLPipeline/protocol/openid-connect/auth
+      tokenEndpoint: https://goodmanreunion.duckdns.org/keycloak/realms/MLPipeline/protocol/openid-connect/token
+    clientID: oauth2-proxy
+    clientSecret:
+      group: ""
+      kind: Secret
+      name: oauth2-proxy-secrets
+    redirectURL: https://mlpipeline.duckdns.org/oauth2/callback
+    logoutPath: /oauth2/sign_out
+    scopes:
+      - openid
+      - email
+      - profile
+    passThroughAuthHeader: true
+    forwardAccessToken: true
+  jwt:
+    providers:
+      - name: keycloak
+        issuer: https://goodmanreunion.duckdns.org/keycloak/realms/MLPipeline
+        audiences:
+          - oauth2-proxy
+          - account
+        remoteJWKS:
+          uri: https://goodmanreunion.duckdns.org/keycloak/realms/MLPipeline/protocol/openid-connect/certs
+---
+# nginx's proxy-read-timeout 3600 on /api (long predictions); Envoy's
+# idle default would cut it at 60s.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: mlpipeline-api-idle-timeout
+  namespace: mlpipeline
+  labels:
+    app.kubernetes.io/name: mlpipeline
+    app.kubernetes.io/component: ingress
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: mlpipeline-protected
+  timeout:
+    http:
+      streamIdleTimeout: 1h
+---
 # Backend on the Zephyrus kind cluster, reached through the rag-forward relay
 # (192.168.1.178:18000 -> kind ingress-nginx NodePort 30717). That ingress
 # routes /airflow to the webserver and everything else to serving; see
