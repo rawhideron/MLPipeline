@@ -14,27 +14,6 @@ service:
   targetPort: 8000
   annotations: {}
 
-ingress:
-  enabled: true
-  className: "nginx"
-  annotations:
-    cert-manager.io/cluster-issuer: "reunion-letsencrypt"
-    nginx.ingress.kubernetes.io/auth-type: "oauth2"
-    nginx.ingress.kubernetes.io/auth-signin: "https://keycloak:8080/realms/MLPipeline/protocol/openid-connect/auth"
-    nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy/oauth2/auth"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-  
-  hosts:
-    - host: "mlpipeline.duckdns.org"
-      paths:
-        - path: "/api"
-          pathType: Prefix
-  
-  tls:
-    - secretName: mlpipeline-tls
-      hosts:
-        - "mlpipeline.duckdns.org"
-
 resources:
   requests:
     memory: "2Gi"
