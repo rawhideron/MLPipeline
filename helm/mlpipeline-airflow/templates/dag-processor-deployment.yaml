@@ -36,6 +36,9 @@ spec:
             - --one-time
             - --root=/dags
             - --link=repo
+            # git 2.47 (git-sync v4.8+) refuses /dags: the PVC root is owned by root,
+            # git-sync runs as 65533 ("detected dubious ownership").
+            - --git-config=safe.directory:*
           volumeMounts:
             - name: dags
               mountPath: /dags
@@ -79,6 +82,9 @@ spec:
             - --period=60s
             - --root=/dags
             - --link=repo
+            # git 2.47 (git-sync v4.8+) refuses /dags: the PVC root is owned by root,
+            # git-sync runs as 65533 ("detected dubious ownership").
+            - --git-config=safe.directory:*
           volumeMounts:
             - name: dags
               mountPath: /dags
