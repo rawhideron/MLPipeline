@@ -39,7 +39,7 @@ spec:
             - name: AIRFLOW__API__SECRET_KEY
               value: "mlpipeline-secret-key-change-in-prod"
         - name: git-sync-init
-          image: registry.k8s.io/git-sync/git-sync:v4.2.1
+          image: registry.k8s.io/git-sync/git-sync:v4.8.0
           args:
             - --repo=https://github.com/rawhideron/MLPipeline.git
             - --branch=main
@@ -99,7 +99,7 @@ spec:
               mountPath: /opt/airflow/pod_template.yaml
               subPath: pod_template.yaml
         - name: git-sync
-          image: registry.k8s.io/git-sync/git-sync:v4.2.1
+          image: registry.k8s.io/git-sync/git-sync:v4.8.0
           args:
             - --repo=https://github.com/rawhideron/MLPipeline.git
             - --branch=main

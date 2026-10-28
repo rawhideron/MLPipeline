@@ -25,7 +25,7 @@ spec:
       serviceAccountName: airflow
       initContainers:
         - name: git-sync-init
-          image: registry.k8s.io/git-sync/git-sync:v4.2.1
+          image: registry.k8s.io/git-sync/git-sync:v4.8.0
           args:
             - --repo=https://github.com/rawhideron/MLPipeline.git
             - --branch=main
