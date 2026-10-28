@@ -2,7 +2,7 @@
 # For MLPipeline Kubernetes deployment
 
 # Airflow version
-airflowVersion: "3.2.0"
+airflowVersion: "3.3.2"
 
 # Namespace
 namespace: mlpipeline
@@ -28,7 +28,7 @@ webserver:
   replicaCount: 1
   image:
     repository: apache/airflow
-    tag: "3.2.0"
+    tag: "3.3.2"
 
   service:
     type: ClusterIP
@@ -61,7 +61,7 @@ scheduler:
   replicaCount: 1
   image:
     repository: apache/airflow
-    tag: "3.2.0"
+    tag: "3.3.2"
   
   resources:
     requests:
@@ -81,7 +81,7 @@ kubernetesExecutor:
   namespace: MLPipeline
   image:
     repository: apache/airflow
-    tag: "3.2.0"
+    tag: "3.3.2"
   
   resources:
     requests:
