@@ -9,10 +9,11 @@ Steps:
 
 Run manually from the Airflow UI: DAGs → mlpipeline_test_inference → Trigger DAG
 
-Requires the serving pod to be running and the model to be loaded. wait_for_test_training
-enforces this by polling the latest mlpipeline_test_training DAG run's state rather than
-matching on logical date, since both DAGs are schedule=None / manually triggered and their
-logical dates won't otherwise line up.
+Requires the serving pod to be running and the model to be loaded. When mlpipeline_test_training
+triggers this DAG it passes its own run_id as conf["training_run_id"], and wait_for_test_training
+polls that run's state through the Task SDK (Airflow 3 forbids direct ORM access such as
+DagRun.find()). A manual trigger without that conf skips the wait; health_check still fails if
+no model is loaded.
 """
 
 import os
@@ -20,7 +21,6 @@ from datetime import UTC, datetime, timedelta
 
 from airflow import DAG
 from airflow.exceptions import AirflowException
-from airflow.models import DagRun
 from airflow.providers.standard.operators.python import PythonOperator
 from airflow.providers.standard.sensors.python import PythonSensor
 from airflow.utils.state import DagRunState
@@ -58,18 +58,19 @@ SAMPLE_TEXTS = [
 ]
 
 
-def check_training_succeeded():
-    runs = DagRun.find(dag_id="mlpipeline_test_training")
-    if not runs:
-        return False  # no run yet — keep waiting
-
-    latest = max(runs, key=lambda r: r.execution_date)
-    if latest.state == DagRunState.SUCCESS:
+def check_training_succeeded(dag_run, ti, **_):
+    training_run_id = (dag_run.conf or {}).get("training_run_id")
+    if not training_run_id:
+        print("No training_run_id in conf (manual trigger) — not waiting for training")
         return True
-    if latest.state == DagRunState.FAILED:
-        raise AirflowException(
-            f"Latest mlpipeline_test_training run ({latest.run_id}) failed"
-        )
+
+    state = ti.get_dagrun_state(
+        dag_id="mlpipeline_test_training", run_id=training_run_id
+    )
+    if state == DagRunState.SUCCESS:
+        return True
+    if state == DagRunState.FAILED:
+        raise AirflowException(f"mlpipeline_test_training run {training_run_id} failed")
     return False  # still queued/running — keep waiting
 
 

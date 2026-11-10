@@ -212,6 +212,7 @@ log_complete = PythonOperator(
 trigger_test_inference = TriggerDagRunOperator(
     task_id="trigger_test_inference",
     trigger_dag_id="mlpipeline_test_inference",
+    conf={"training_run_id": "{{ run_id }}"},
     wait_for_completion=False,
     dag=dag,
 )
