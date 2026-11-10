@@ -4,14 +4,24 @@ Test training DAG — runs a quick fine-tune of distilbert on a small IMDB sampl
 Steps:
   1. validate_environment  — confirms Python/torch/transformers are importable
   2. download_data         — downloads a 200-sample slice of the IMDB dataset
-  3. train_model           — fine-tunes distilbert for 1 epoch, saves to /models/trained_model
-  4. evaluate_model        — runs accuracy check on a held-out slice
-  5. log_complete          — prints a summary
-  6. trigger_test_inference — triggers mlpipeline_test_inference
+  3. pause_rag_ollama      — scales the ragpipeline Ollama server to 0 to free the GPU
+  4. train_model           — fine-tunes distilbert for 1 epoch on the GPU,
+                             saves to /models/test_trained_model
+  5. resume_rag_ollama     — restores Ollama whether or not training succeeded
+  6. evaluate_model        — runs accuracy check on a held-out slice
+  7. log_complete          — prints a summary
+  8. trigger_test_inference — triggers mlpipeline_test_inference
+
+The training script and data size stay small, but the image, GPU scheduling, Ollama
+hand-off, retries and pod settings mirror dags/training_dag.py (mlpipeline_training).
+Keep the two in step: Airflow 3 does not put the dags folder on sys.path, so the
+helpers below are copies rather than imports.
 
 Run manually from the Airflow UI: DAGs → mlpipeline_test_training → Trigger DAG
 """
 
+import logging
+import time
 from datetime import UTC, datetime, timedelta
 
 from airflow import DAG
@@ -20,13 +30,18 @@ from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperato
 from airflow.providers.standard.operators.python import PythonOperator
 from kubernetes.client import models as k8s
 
+logger = logging.getLogger(__name__)
+
 NAMESPACE = "mlpipeline"
-IMAGE = "kind-registry:5000/mlpipeline-training:1.0.4"
+# Same image as mlpipeline_training (dags/training_dag.py TRAINING_IMAGE)
+IMAGE = "kind-registry:5000/mlpipeline-training:1.0.7"
+MODELS_PVC = "mlpipeline-serving-models"
 
 default_args = {
     "owner": "mlpipeline",
     "retries": 1,
-    "retry_delay": timedelta(minutes=2),
+    "retry_delay": timedelta(minutes=5),
+    "email_on_failure": False,
 }
 
 dag = DAG(
@@ -36,8 +51,146 @@ dag = DAG(
     schedule=None,  # manual trigger only
     start_date=datetime(2026, 1, 1, tzinfo=UTC),
     catchup=False,
+    # Only one physical GPU exists; never let two runs compete for it.
+    max_active_runs=1,
     tags=["test", "training"],
 )
+
+
+def _models_volume():
+    return k8s.V1Volume(
+        name="models",
+        persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
+            claim_name=MODELS_PVC
+        ),
+    )
+
+
+def _models_mount():
+    return k8s.V1VolumeMount(name="models", mount_path="/models")
+
+
+# GPU scheduling: copied from dags/training_dag.py. The single RTX 3070 is exposed
+# through reunion-worker (primary) and reunion-worker2 (secondary); the
+# ops/zephyrus/gpu-exclusive-policy.yaml admission policy rejects any GPU pod that
+# lacks the label and affinity below.
+GPU_EXCLUSIVE_LABEL = "mlpipeline.io/gpu-exclusive"
+GPU_POOL_LABEL = "mlpipeline.io/gpu-pool"
+GPU_ROLE_LABEL = "mlpipeline.io/gpu-role"
+
+
+def _gpu_affinity():
+    return k8s.V1Affinity(
+        node_affinity=k8s.V1NodeAffinity(
+            required_during_scheduling_ignored_during_execution=k8s.V1NodeSelector(
+                node_selector_terms=[
+                    k8s.V1NodeSelectorTerm(
+                        match_expressions=[
+                            k8s.V1NodeSelectorRequirement(
+                                key=GPU_POOL_LABEL, operator="Exists"
+                            )
+                        ]
+                    )
+                ]
+            ),
+            preferred_during_scheduling_ignored_during_execution=[
+                k8s.V1PreferredSchedulingTerm(
+                    weight=100,
+                    preference=k8s.V1NodeSelectorTerm(
+                        match_expressions=[
+                            k8s.V1NodeSelectorRequirement(
+                                key=GPU_ROLE_LABEL, operator="In", values=["primary"]
+                            )
+                        ]
+                    ),
+                )
+            ],
+        ),
+        pod_anti_affinity=k8s.V1PodAntiAffinity(
+            required_during_scheduling_ignored_during_execution=[
+                k8s.V1PodAffinityTerm(
+                    label_selector=k8s.V1LabelSelector(
+                        match_labels={GPU_EXCLUSIVE_LABEL: "true"}
+                    ),
+                    topology_key=GPU_POOL_LABEL,
+                    namespace_selector=k8s.V1LabelSelector(),
+                )
+            ]
+        ),
+    )
+
+
+def _gpu_tolerations():
+    # Evict from a dead node after 30s (default 300s) so a rerun can fail over.
+    return [
+        k8s.V1Toleration(
+            key=key, operator="Exists", effect="NoExecute", toleration_seconds=30
+        )
+        for key in ("node.kubernetes.io/not-ready", "node.kubernetes.io/unreachable")
+    ]
+
+
+# Ollama GPU hand-off: copied from dags/training_dag.py (RBAC lives in the
+# ragpipeline repo, k8s/176/06-ollama-gpu-handoff-rbac.yaml).
+RAG_NAMESPACE = "rag"
+OLLAMA_DEPLOYMENT = "ollama"
+OLLAMA_REPLICAS_XCOM = "ollama_replicas"
+OLLAMA_RELEASE_TIMEOUT = 180
+
+
+def _rag_clients():
+    from kubernetes import client, config
+
+    config.load_incluster_config()
+    return client.AppsV1Api(), client.CoreV1Api()
+
+
+def pause_rag_ollama(ti):
+    from kubernetes.client.rest import ApiException
+
+    apps, core = _rag_clients()
+    try:
+        scale = apps.read_namespaced_deployment_scale(OLLAMA_DEPLOYMENT, RAG_NAMESPACE)
+    except ApiException as e:
+        if e.status == 404:
+            logger.info(
+                "No %s/%s deployment; nothing to pause",
+                RAG_NAMESPACE,
+                OLLAMA_DEPLOYMENT,
+            )
+            return
+        raise
+    # Record before scaling so resume restores it even if the wait below fails.
+    ti.xcom_push(key=OLLAMA_REPLICAS_XCOM, value=scale.spec.replicas or 0)
+    apps.patch_namespaced_deployment_scale(
+        OLLAMA_DEPLOYMENT, RAG_NAMESPACE, {"spec": {"replicas": 0}}
+    )
+    deadline = time.monotonic() + OLLAMA_RELEASE_TIMEOUT
+    while pods := core.list_namespaced_pod(
+        RAG_NAMESPACE,
+        label_selector="app=ollama",
+        field_selector="status.phase!=Failed,status.phase!=Succeeded",
+    ).items:
+        if time.monotonic() > deadline:
+            names = ", ".join(pod.metadata.name for pod in pods)
+            raise TimeoutError(
+                f"Ollama pods still present after {OLLAMA_RELEASE_TIMEOUT}s: {names}"
+            )
+        time.sleep(5)
+    logger.info("Ollama scaled from %s to 0; GPU released", scale.spec.replicas)
+
+
+def resume_rag_ollama(ti):
+    replicas = ti.xcom_pull(task_ids="pause_rag_ollama", key=OLLAMA_REPLICAS_XCOM)
+    if not replicas:
+        logger.info("Ollama was not running before training; leaving it scaled down")
+        return
+    apps, _ = _rag_clients()
+    apps.patch_namespaced_deployment_scale(
+        OLLAMA_DEPLOYMENT, RAG_NAMESPACE, {"spec": {"replicas": replicas}}
+    )
+    logger.info("Ollama scaled back to %s", replicas)
+
 
 validate_task = KubernetesPodOperator(
     task_id="validate_environment",
@@ -75,20 +228,17 @@ print(f"Downloaded {len(ds)} samples to /models/test_data")
     name="download-data",
     in_cluster=True,
     get_logs=True,
-    volume_mounts=[k8s.V1VolumeMount(name="models", mount_path="/models")],
-    volumes=[
-        k8s.V1Volume(
-            name="models",
-            persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
-                claim_name="mlpipeline-serving-models"
-            ),
-        )
-    ],
+    volumes=[_models_volume()],
+    volume_mounts=[_models_mount()],
     dag=dag,
 )
 
 train_task = KubernetesPodOperator(
     task_id="train_model",
+    # As in mlpipeline_training: a GPU run has hard-reset the Zephyrus host, and
+    # an automatic retry just triggers a second reset.
+    retries=0,
+    max_active_tis_per_dag=1,
     namespace=NAMESPACE,
     image=IMAGE,
     image_pull_policy="IfNotPresent",
@@ -138,18 +288,21 @@ print("Model saved to /models/test_trained_model")
     in_cluster=True,
     get_logs=True,
     container_resources=k8s.V1ResourceRequirements(
-        requests={"memory": "2Gi", "cpu": "1"},
-        limits={"memory": "4Gi", "cpu": "2"},
+        requests={"memory": "1Gi", "cpu": "1", "nvidia.com/gpu": "1"},
+        limits={"memory": "2560Mi", "cpu": "2", "nvidia.com/gpu": "1"},
     ),
-    volume_mounts=[k8s.V1VolumeMount(name="models", mount_path="/models")],
-    volumes=[
-        k8s.V1Volume(
-            name="models",
-            persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
-                claim_name="mlpipeline-serving-models"
-            ),
+    labels={GPU_EXCLUSIVE_LABEL: "true"},
+    affinity=_gpu_affinity(),
+    tolerations=_gpu_tolerations(),
+    security_context=k8s.V1PodSecurityContext(fs_group=999),
+    full_pod_spec=k8s.V1Pod(
+        spec=k8s.V1PodSpec(
+            runtime_class_name="nvidia",
+            containers=[k8s.V1Container(name="base")],
         )
-    ],
+    ),
+    volumes=[_models_volume()],
+    volume_mounts=[_models_mount()],
     dag=dag,
 )
 
@@ -189,15 +342,25 @@ print(f"\\nAccuracy: {correct}/{len(samples)} = {correct/len(samples)*100:.0f}%"
     name="evaluate-model",
     in_cluster=True,
     get_logs=True,
-    volume_mounts=[k8s.V1VolumeMount(name="models", mount_path="/models")],
-    volumes=[
-        k8s.V1Volume(
-            name="models",
-            persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
-                claim_name="mlpipeline-serving-models"
-            ),
-        )
-    ],
+    volumes=[_models_volume()],
+    volume_mounts=[_models_mount()],
+    dag=dag,
+)
+
+pause_rag_ollama_task = PythonOperator(
+    task_id="pause_rag_ollama",
+    python_callable=pause_rag_ollama,
+    # A retry would record the already-paused replica count (0) and resume
+    # would then leave Ollama down.
+    retries=0,
+    dag=dag,
+)
+
+# all_done: give the GPU back to Ollama whether or not training succeeded.
+resume_rag_ollama_task = PythonOperator(
+    task_id="resume_rag_ollama",
+    python_callable=resume_rag_ollama,
+    trigger_rule="all_done",
     dag=dag,
 )
 
@@ -220,8 +383,10 @@ trigger_test_inference = TriggerDagRunOperator(
 (
     validate_task
     >> download_task
+    >> pause_rag_ollama_task
     >> train_task
     >> evaluate_task
     >> log_complete
     >> trigger_test_inference
 )
+train_task >> resume_rag_ollama_task
